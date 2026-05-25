@@ -1,0 +1,9 @@
+# ReCode local database
+.recode
+node_modules
+.env
+dist
+.venv
+
+.vscode
+.idea
