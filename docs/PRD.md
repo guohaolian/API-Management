@@ -28,12 +28,13 @@ NEXUS 试图把“接口定义”从附属产物变成核心资产：把 Service
 - API：分类管理、按分类获取 API 列表、查询 API 详情（含参数树）
 - 迭代内 API 草稿：新增、删除、更新（同时更新请求/响应参数草稿）
 - OpenAPI 导出：按 `service_uuid + version` 导出 OpenAPI JSON
+- OpenAPI 导入：支持导入 OpenAPI JSON 文件，生成 API
 - 前端 Web：围绕上述能力的完整管理 UI
 - npm 包（`nexus-api-codegen`）：CLI 登录、选择 Service 并生成 TS 服务类与类型定义
 
 ### 3.2 非目标（当前不做 / 未落地）
 
-- OpenAPI/Swagger/Thrift 文件导入（当前未落地；仅支持 OpenAPI 导出）
+- OpenAPI/Swagger/Thrift 文件导入（当前未落地；仅支持 OpenAPI 导出和导入）
 - 在线 Mock、在线测试台、自动化测试用例生成
 - 多人协作与 maintainer 权限体系（当前以 owner 为主）
 - 复杂的差异对比 UI（diff）与变更审计流
@@ -61,7 +62,12 @@ NEXUS 试图把“接口定义”从附属产物变成核心资产：把 Service
 - 通过 CLI 登录，配置要拉取的 Service（支持 `latest` 或具体版本）
 - 自动生成 Service Class + namespaces 类型定义，直接接入 axios/fetch
 
-4) 导出 OpenAPI 供下游使用
+4) 导入 OpenAPI 生成API
+- 在服务详情页发起迭代
+- 点击导入OpenAPI按钮
+- 选择导入的 OpenAPI 文件
+- 系统解析并生成 API，更新迭代状态为“已完成”
+5) 导出 OpenAPI 供下游使用
 - 在服务详情页选择一个版本
 - 点击「导出 OpenAPI」下载 JSON（文件名为 `service_uuid.json`）
 - 用于对接文档平台/网关/测试工具（以 OpenAPI 消费方的能力为准）
@@ -145,6 +151,14 @@ CLI 使用流程：
 - 行为：前端调用后端导出接口获取 `openapi_object`，并在浏览器侧下载 JSON 文件
 - 文件名：`<service_uuid>.json`
 
+### 6.6 OpenAPI 导入
+
+目标：把OpenAPI文档导入到系统中，生成对应的 API 与参数。
+
+当前实现：
+
+- 入口：服务详情页发起迭代状态点击右上角按钮「导入 OpenAPI」
+- 行为：前端调用后端导入接口获取 
 ## 7. 新颖之处（差异化点）
 
 ### 7.1 “迭代即工作区”：把 API 变更过程产品化
@@ -269,6 +283,7 @@ CLI 使用流程：
 - `POST /commitIteration`
 - `POST /updateDescription`
 - `GET /exportOpenapiByUuidAndVersion`
+- `POST /importOpenapiToIteration`
 
 ### 9.3 API（/v1/api）
 
@@ -310,7 +325,6 @@ CLI 使用流程：
 
 ### 11.2 规划方向（与现有设计一致）
 
-- API 定义导入（OpenAPI/Thrift）
 - 版本差异对比（Service/API/参数树 diff）
 - 迭代审批/变更审计
 - 团队协作（maintainer、成员权限、跨服务访问策略）

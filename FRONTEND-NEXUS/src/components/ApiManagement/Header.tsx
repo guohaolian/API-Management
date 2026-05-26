@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import debounce from "lodash/debounce";
 import {
-    Badge,
+    // Badge,
     Breadcrumb,
     Button,
+    Message,
     Divider,
     IconLoading,
     IconUserGroup,
@@ -30,6 +31,7 @@ interface HeaderHandlers {
         maintainerId: number,
     ) => Promise<boolean>;
     handleExportOpenAPI: () => Promise<Record<string, any> | null>;
+    handleImportOpenAPI: (openapiObject: Record<string, any>) => Promise<void>;
 }
 
 interface HeaderProps {
@@ -60,6 +62,7 @@ const Header: React.FC<HeaderProps> = (props) => {
             checkIsServiceMaintainer,
             handleAddOrRemoveServiceMaintainerById,
             handleExportOpenAPI,
+            handleImportOpenAPI,
         },
     } = props;
 
@@ -252,6 +255,40 @@ const Header: React.FC<HeaderProps> = (props) => {
             console.error("Export failed:", error);
         } finally {
             setExportLoading(false);
+        }
+    };
+
+    // 导入 OpenAPI（仅在迭代中显示）
+    const fileInputRef = useRef<HTMLInputElement | null>(null);
+    const [importLoading, setImportLoading] = useState(false);
+
+    const chooseOpenApiFile = () => {
+        fileInputRef.current?.click();
+    };
+
+    const onOpenApiFileChange: React.ChangeEventHandler<HTMLInputElement> = async (
+        e,
+    ) => {
+        const file = e.target.files?.[0];
+        // 允许重复选择同一个文件
+        e.target.value = "";
+        if (!file) {
+            return;
+        }
+
+        setImportLoading(true);
+        try {
+            const text = await file.text();
+            const obj = JSON.parse(text);
+            if (!obj || typeof obj !== "object") {
+                throw new Error("OpenAPI JSON 解析失败");
+            }
+            await handleImportOpenAPI(obj as Record<string, any>);
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : "导入 OpenAPI 失败";
+            Message.warning(msg);
+        } finally {
+            setImportLoading(false);
         }
     };
 
@@ -466,16 +503,37 @@ const Header: React.FC<HeaderProps> = (props) => {
                             )}
                         </Space>
                     )}
-                <Badge text="NEW">
-                    <Button
-                        type="default"
-                        status="success"
-                        onClick={exportAndDownloadOpenAPI}
-                        loading={exportLoading}
-                    >
-                        导出 OpenAPI
-                    </Button>
-                </Badge>
+                <Space size={10}>
+                    {/* <Badge text="NEW"> */}
+                        <Button
+                            type="default"
+                            status="success"
+                            onClick={exportAndDownloadOpenAPI}
+                            loading={exportLoading}
+                        >
+                            导出 OpenAPI
+                        </Button>
+                    {/* </Badge> */}
+                    {inIteration && (
+                        <>
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="application/json,.json"
+                                style={{ display: "none" }}
+                                onChange={onOpenApiFileChange}
+                            />
+                            <Button
+                                type="default"
+                                status="danger"
+                                onClick={chooseOpenApiFile}
+                                loading={importLoading}
+                            >
+                                导入 OpenAPI
+                            </Button>
+                        </>
+                    )}
+                </Space>
             </Space>
         </div>
     );

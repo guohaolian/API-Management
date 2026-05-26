@@ -15,6 +15,10 @@ from database.models import (
     ResponseParamDraft,
 )
 from services.utils import checkServiceIterationPermission, openapiTemplate
+from services.openapi_import import (
+    import_openapi_to_iteration,
+    import_openapi_to_new_iteration,
+)
 
 
 # 获取全部服务
@@ -905,3 +909,31 @@ def serviceExportOpenapiByUuidAndVersion(
         "openapi_object": openapi,
         "is_latest": is_latest,
     }
+
+
+def serviceImportOpenapiToNewIteration(
+    db: Session,
+    service_id: int,
+    openapi_object: dict,
+    user_id: int,
+) -> dict:
+    return import_openapi_to_new_iteration(
+        db=db,
+        service_id=service_id,
+        openapi_object=openapi_object,
+        user_id=user_id,
+    )
+
+
+def serviceImportOpenapiToIteration(
+    db: Session,
+    service_iteration_id: int,
+    openapi_object: dict,
+    user_id: int,
+) -> dict:
+    return import_openapi_to_iteration(
+        db=db,
+        service_iteration_id=service_iteration_id,
+        openapi_object=openapi_object,
+        user_id=user_id,
+    )

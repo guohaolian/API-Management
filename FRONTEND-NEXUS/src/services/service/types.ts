@@ -180,6 +180,29 @@ export interface ExportOpenapiByUuidAndVersionResponse extends BaseResponse {
     is_latest: boolean;
 }
 
+export interface ImportOpenapiToNewIterationRequest {
+    service_id: number;
+    openapi_object: Record<string, any>;
+}
+
+export interface ImportOpenapiToNewIterationResponse extends BaseResponse {
+    service_iteration_id: number;
+    imported: {
+        apis: number;
+        request_params: number;
+        response_params: number;
+        categories: number;
+        warnings: string[];
+    };
+}
+
+export interface ImportOpenapiToIterationRequest {
+    service_iteration_id: number;
+    openapi_object: Record<string, any>;
+}
+
+export type ImportOpenapiToIterationResponse = ImportOpenapiToNewIterationResponse;
+
 export type ServiceRange =
     | "MyServices"
     | "MyMaintainedServices"

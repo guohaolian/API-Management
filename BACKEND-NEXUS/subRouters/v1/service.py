@@ -334,3 +334,49 @@ def exportOpenapiByUuidAndVersion(request: Request):
             user_id=user_id,
         )
     return res
+
+
+# 导入 OpenAPI（创建一个新的迭代，并将 OpenAPI 写入草稿）
+@serviceRouterV1.post("/importOpenapiToNewIteration", auth_required=True)
+def importOpenapiToNewIteration(request: Request):
+    data = request.json()
+    service_id = data.get("service_id")
+    openapi_object = data.get("openapi_object")
+    if service_id is None or openapi_object is None:
+        return Response(
+            status_code=400,
+            description="service_id and openapi_object are required",
+            headers={},
+        )
+    user_id = userGetUserIdByAccessToken(request=request)
+    with session() as db:
+        res = serviceImportOpenapiToNewIteration(
+            db=db,
+            service_id=int(service_id),
+            openapi_object=openapi_object,
+            user_id=user_id,
+        )
+    return res
+
+
+# 导入 OpenAPI 到当前迭代（覆写当前迭代草稿）
+@serviceRouterV1.post("/importOpenapiToIteration", auth_required=True)
+def importOpenapiToIteration(request: Request):
+    data = request.json()
+    service_iteration_id = data.get("service_iteration_id")
+    openapi_object = data.get("openapi_object")
+    if service_iteration_id is None or openapi_object is None:
+        return Response(
+            status_code=400,
+            description="service_iteration_id and openapi_object are required",
+            headers={},
+        )
+    user_id = userGetUserIdByAccessToken(request=request)
+    with session() as db:
+        res = serviceImportOpenapiToIteration(
+            db=db,
+            service_iteration_id=int(service_iteration_id),
+            openapi_object=openapi_object,
+            user_id=user_id,
+        )
+    return res

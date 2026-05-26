@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import styles from "./index.module.less";
 import { useSearchParams } from "react-router-dom";
 import { useThisService, useServiceIteration } from "@/hooks/useService";
@@ -7,9 +7,10 @@ import Detail from "./Detail";
 import Header from "./Header";
 import ApiList from "./ApiList";
 import ApiEdit from "./ApiEdit";
-import { Layout, Spin } from "@cloud-materials/common";
+import { Layout, Message, Spin } from "@cloud-materials/common";
 import type { UserProfile } from "@/services/user/types";
 import { inIterationWarning } from "@/utils";
+import { ImportOpenapiToIteration } from "@/services/service";
 
 const ApiManagement: React.FC = () => {
     const [searchParams] = useSearchParams();
@@ -62,11 +63,31 @@ const ApiManagement: React.FC = () => {
         loading: iterationLoading,
         iterationDetail,
         iterationTreeData,
+        fetchIterationDetail,
         handleAddApi,
         handleSaveApiDraft,
         handleCopyApi,
         handleDeleteApi,
     } = useServiceIteration(iterationId, apiCategories);
+
+    const handleImportOpenAPI = useCallback(
+        async (openapiObject: Record<string, any>) => {
+            if (!inIteration || iterationId <= 0) {
+                Message.warning("请先开始迭代");
+                return;
+            }
+            const res = await ImportOpenapiToIteration({
+                service_iteration_id: iterationId,
+                openapi_object: openapiObject,
+            });
+            if (res.status !== 200) {
+                throw new Error(res.message || "导入 OpenAPI 失败");
+            }
+            Message.success(res.message || "导入 OpenAPI 成功");
+            await fetchIterationDetail();
+        },
+        [inIteration, iterationId, fetchIterationDetail],
+    );
 
     const isLoading =
         loading ||
@@ -115,6 +136,7 @@ const ApiManagement: React.FC = () => {
                         checkIsServiceMaintainer,
                         handleAddOrRemoveServiceMaintainerById,
                         handleExportOpenAPI,
+                        handleImportOpenAPI,
                     }}
                 />
             </Layout.Header>
