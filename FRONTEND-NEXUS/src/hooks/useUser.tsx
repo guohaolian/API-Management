@@ -243,7 +243,7 @@ export const useUser = create<UserStore>()(
                         onOk: async (values, form) => {
                             try {
                                 await form.validate();
-                                const res = await get().register({
+                                const registerRes = await get().register({
                                     username: values.username,
                                     password: values.password,
                                     nickname: values.nickname,
@@ -251,11 +251,34 @@ export const useUser = create<UserStore>()(
                                     role: values.role,
                                     confirmPassword: values.confirmPassword,
                                 });
-                                Message.success(
-                                    res.message || t("register.success")
-                                );
-                                // 显式关闭弹窗，避免依赖隐式行为
-                                modal.close();
+
+                                try {
+                                    await get().login({
+                                        username: values.username,
+                                        password: values.password,
+                                    });
+                                    Message.success(
+                                        t("register.autoLoginSuccess", {
+                                            defaultValue:
+                                                registerRes.message ||
+                                                t("register.success"),
+                                        })
+                                    );
+                                } catch (err: unknown) {
+                                    // 注册已成功：不抛错，避免弹窗无法关闭且再次提交会触发“重复注册”
+                                    Message.success(
+                                        registerRes.message ||
+                                            t("register.success")
+                                    );
+                                    Message.warning(
+                                        t("register.autoLoginFailure", {
+                                            defaultValue: t("login.failure"),
+                                        })
+                                    );
+                                } finally {
+                                    // 显式关闭弹窗，避免依赖隐式行为
+                                    modal.close();
+                                }
                             } catch (err: unknown) {
                                 const msg =
                                     err instanceof Error

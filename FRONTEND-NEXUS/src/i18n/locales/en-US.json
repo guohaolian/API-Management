@@ -141,6 +141,8 @@
     "reset": "Reset",
     "submit": "Register",
     "success": "Registered successfully",
+    "autoLoginSuccess": "Registered successfully. Logged in automatically.",
+    "autoLoginFailure": "Registered successfully, but auto-login failed. Please login manually.",
     "failure": "Registration failed"
   },
   "modifyPassword": {
