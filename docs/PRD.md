@@ -1,4 +1,4 @@
-# 【PRD】CAM API Management
+# 【PRD】NEXUS API Management
 
 ## 1. 背景与问题
 
@@ -9,7 +9,7 @@
 - 变更不可控：一次迭代内多个接口改动混在一起，无法做到“先草稿、再发布”
 - 联调效率低：前端需要手工维护 types 与 request，重复劳动且容易出错
 
-CAM 试图把“接口定义”从附属产物变成核心资产：把 Service/API/参数/迭代过程结构化存储，并提供 UI 与代码生成能力，降低协作成本。
+NEXUS 试图把“接口定义”从附属产物变成核心资产：把 Service/API/参数/迭代过程结构化存储，并提供 UI 与代码生成能力，降低协作成本。
 
 ## 2. 产品目标
 
@@ -29,7 +29,7 @@ CAM 试图把“接口定义”从附属产物变成核心资产：把 Service/A
 - 迭代内 API 草稿：新增、删除、更新（同时更新请求/响应参数草稿）
 - OpenAPI 导出：按 `service_uuid + version` 导出 OpenAPI JSON
 - 前端 Web：围绕上述能力的完整管理 UI
-- npm 包（`cam-fe-code-generator`）：CLI 登录、选择 Service 并生成 TS 服务类与类型定义
+- npm 包（`nexus-api-codegen`）：CLI 登录、选择 Service 并生成 TS 服务类与类型定义
 
 ### 3.2 非目标（当前不做 / 未落地）
 
@@ -130,10 +130,10 @@ CAM 试图把“接口定义”从附属产物变成核心资产：把 Service/A
 
 CLI 使用流程：
 
-1) `cam login`：保存 token 到 `~/.camrc`
-2) `cam init`：在当前目录生成 `cam.config.json`
-3) `cam add name:uuid@version|latest`：登记要生成的服务
-4) `cam update`：拉取所有服务的 API 详情并生成代码（每次先清空输出目录再生成）
+1) `nexus login`：保存 token 到 `~/.nexusrc`
+2) `nexus init`：在当前目录生成 `nexus.config.json`
+3) `nexus add name:uuid@version|latest`：登记要生成的服务
+4) `nexus update`：拉取所有服务的 API 详情并生成代码（每次先清空输出目录再生成）
 
 ### 6.5 OpenAPI 导出
 
@@ -149,7 +149,7 @@ CLI 使用流程：
 
 ### 7.1 “迭代即工作区”：把 API 变更过程产品化
 
-很多系统只做“接口列表 + 文档”，但缺少“变更如何发生、如何提交”的结构化表达。CAM 的迭代机制把一次变更拆为三个明确阶段：
+很多系统只做“接口列表 + 文档”，但缺少“变更如何发生、如何提交”的结构化表达。NEXUS 的迭代机制把一次变更拆为三个明确阶段：
 
 - 开始迭代：从稳定版本复制出草稿
 - 迭代编辑：允许大量改动，但不影响正式版本
@@ -227,7 +227,7 @@ CLI 使用流程：
 - 幂等：同一份配置重复生成结果一致
 - 可回收：更新时清空输出目录，避免残留文件造成“幽灵接口”
 - 可接入：生成代码不绑定具体网络库，业务侧可以自由注入
-- 可调试：CLI 的登录态需要跨命令持久化（当前使用 `~/.camrc`）
+- 可调试：CLI 的登录态需要跨命令持久化（当前使用 `~/.nexusrc`）
 
 ### 8.6 兼容产品现实的错误返回与前端处理策略
 
