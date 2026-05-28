@@ -1,3 +1,12 @@
+"""数据库模型定义。
+
+本模块使用 SQLAlchemy ORM 定义项目所需的所有数据库表模型。
+包含：用户、服务、API、参数、草稿以及与之关联的迭代和分类等模型。
+
+提供的类型均继承自 `Base`（由 `declarative_base()` 创建），并混入了 `SerializableMixin`
+以便在需要时将模型实例序列化为 JSON 结构（用于 API 返回或调试）。
+"""
+
 from sqlalchemy import (
     inspect,
     Table,
@@ -26,7 +35,7 @@ from .enums import (
 from bcrypt import hashpw, gensalt, checkpw
 
 Base = declarative_base()
-# 数据库表名和列名的命名规范
+# 为数据库约束（索引、唯一约束、外键等）统一命名规范，便于跨数据库迁移和排查
 naming_convention = {
     "ix": "ix_%(column_0_label)s",
     "uq": "uq_%(table_name)s_%(column_0_name)s",
@@ -39,6 +48,15 @@ Base.metadata.naming_convention = naming_convention
 
 # 可序列化Mixin基类，提供toJson方法将模型实例转换为JSON
 class SerializableMixin:
+    """为模型提供简单的序列化方法 `toJson()`。
+
+    特性：
+    - 默认排除 `password` 字段（可通过 `exclude` 修改）
+    - 可通过 `include` 精确指定要包含的字段（同时可包含关系名），
+      当包含关系名时，会尝试递归序列化该关系对象
+    - `include_relations=True` 时将自动序列化所有关系字段
+    """
+
     def toJson(self, include=None, exclude=["password"], include_relations=False):
         include = set(include) if include else None
         exclude = set(exclude) if exclude else set()
@@ -47,12 +65,14 @@ class SerializableMixin:
             return {}
 
         data = {}
+        # 序列化列字段
         for column in mapper.columns:
             name = column.key
+            # 如果指定了 include，则仅包含列/关系中被包含的字段
             if include:
                 if name not in include:
                     continue
-                # 若有 include，则要检查关系是否在 include 中
+                # 若 include 中包含关系名，则在此处也处理关系序列化
                 for rel in mapper.relationships:
                     if rel.key in include:
                         value = getattr(self, rel.key)
@@ -65,6 +85,7 @@ class SerializableMixin:
                 value = value.isoformat()
             data[name] = value
 
+        # 当需要包含关系时，序列化所有关系字段（或跳过被排除的）
         if include_relations:
             for rel in mapper.relationships:
                 if rel.key in exclude:
@@ -107,10 +128,15 @@ class User(Base, SerializableMixin):
 
     @staticmethod
     def hashPassword(password):
+        """使用 bcrypt 对明文密码进行哈希并返回可存储的字符串。
+
+        返回值是解码后的 utf-8 字符串，可直接写入 `password` 字段。
+        """
         hashed = hashpw(password.encode("utf-8"), gensalt())
         return hashed.decode("utf-8")
 
     def checkPassword(self, password):
+        """校验明文 `password` 是否与当前实例的 `password` 字段匹配。"""
         return checkpw(password.encode("utf-8"), self.password.encode("utf-8"))
 
     def __repr__(self):
