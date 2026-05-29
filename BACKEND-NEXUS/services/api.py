@@ -43,20 +43,29 @@ def apiGetAllCategoriesByServiceId(db: Session, service_id: int, user_id: int) -
         "categories": [ ... ]
     }
     """
+    # 从数据库会话中通过主键获取 Service 实体（等同于 SELECT ... WHERE id=?）
     service = db.get(Service, service_id)
+    # 若不存在对应的 service，立即返回错误，避免后续空引用
     if not service:
         return {
             "status": -1,
             "message": "Service not found",
         }
-    # 非L0用户只能查看自己的服务
+
+    # 权限检查：只有 L0（系统管理员）或服务的 owner/maintainer 可查看
+    # `user.level.value == 0` 代表最高权限（L0）。这里采用短路逻辑：
+    # - 先取 user 实体用于后续更多权限判断；
+    # - 若 user 不存在，后续直接判为未授权（或在调用处已保证用户存在）。
+    # 读取调用者对应的 User 实体，用于权限判断
     user = db.get(User, user_id)
+    # 判断是否为 owner 或系统管理员（L0）；注意这里不显式检查 maintainer
     if service.owner_id != user_id and user.level.value != 0:  # type: ignore
         return {
             "status": -2,
             "message": "You are not the owner of this service",
         }
     # 查询并按主键顺序返回分类列表
+    # 构造查询：筛选出属于该 service 的 ApiCategory，按主键升序返回全部结果
     categories = (
         db.query(ApiCategory)
         .filter(ApiCategory.service_id == service_id)
@@ -80,13 +89,15 @@ def apiGetAllApisByServiceId(
     注意：该函数只返回 API 列表，不包含 `Service` 的其他字段。
     权限：非 L0 用户只能查看自己拥有或维护的服务。
     """
+    # 获取 Service 实体用于权限与过滤
     service = db.get(Service, service_id)
     if not service:
         return {
             "status": -1,
             "message": "Service not found",
         }
-    # 非L0用户只能查看自己的服务
+    # 权限检查：非 L0 用户需为 owner 或 maintainer
+    # 获取用户实体并做权限判断（owner 或 L0）
     user = db.get(User, user_id)
     if service.owner_id != user_id and user.level.value != 0:  # type: ignore
         return {
@@ -94,8 +105,10 @@ def apiGetAllApisByServiceId(
             "message": "You are not the owner of this service",
         }
     # 查询不包含软删除的 API（`is_deleted` 字段为 False）
+    # 构造基础查询：只包含未软删除（is_deleted False）的 Api
     query = db.query(Api).filter(Api.service_id == service_id, ~Api.is_deleted)
     if category_id is not None:
+        # 若传入 category_id，则在基础查询上追加过滤条件
         query = query.filter(Api.category_id == category_id)
     apis = query.order_by(Api.id.desc()).all()
     return {
@@ -119,6 +132,7 @@ def apiGetApiById(
     返回会包含序列化的字段以及按 location/status 分组的参数。
     权限控制：非 L0 用户需为服务 owner、maintainer 或 iteration 的 creator（草稿场景）。
     """
+    # 根据 is_latest 决定从哪个表获取：正式表 Api 或草稿表 ApiDraft
     api = db.get(Api, api_id) if is_latest else db.get(ApiDraft, api_id)
     if not api:
         return {
@@ -126,12 +140,16 @@ def apiGetApiById(
             "message": "Api not found",
         }
     # 非L0用户只能查看自己的服务
+    # 获取调用者用户实体，用于后续的权限校验
     user = db.get(User, user_id)
     if not user:
         return {
             "status": -2,
             "message": "User not found",
         }
+    # 非 L0 用户需满足更严格的权限：
+    # - 在 `is_latest` 场景（查看正式发布的 Api）时，需为 service 的 owner 或 maintainer；
+    # - 在 草稿（history）场景时，允许 iteration 的 creator 查看，同时 owner/maintainer 也有权限。
     if user.level.value != 0:
         if (
             is_latest
@@ -152,12 +170,17 @@ def apiGetApiById(
                 "status": -4,
                 "message": "You are neither the owner nor the maintainer of this service, nor the creator of this service iteration",
             }
-    # 处理并组织请求/响应参数为更易消费的结构（按 location 或 status code 分类）
+    # 将 ORM 级联加载的参数集合转换为前端期待的分组结构：
+    # - 请求参数按 location（path/query/body/header）分组；
+    # - 响应参数按 status code 分组。
+    # 这些 helper 会遍历 api.request_params/api.response_params 并产出字典。
     request_params_by_location = organizeReqParams(api.request_params)
     response_params_by_status_code = organizeRespParams(api.response_params)
 
     # 使用模型的 toJson 方法序列化实体，排除大体量或冗余的关系字段，
     # 以便把参数数据以更友好的结构放到顶层返回给前端。
+    # 使用模型的 toJson 导出 API 对象为字典，include_relations=True 表示包含关联实体，
+    # exclude 指定不希望直接序列化的关系字段（因为我们将以更友好的结构返回这些数据）
     api_info = api.toJson(
         include_relations=True,
         exclude=[
@@ -190,13 +213,15 @@ def apiAddCategoryByServiceId(
     权限：非 L0 用户需为服务 owner 或 maintainer。
     返回新创建的 category 的 `toJson()`。
     """
+    # 获取 service 实体以便权限检查
     service = db.get(Service, service_id)
     if not service:
         return {
             "status": -1,
             "message": "Service not found",
         }
-    # 非L0用户只能操作自己的服务
+    # 权限检查：只有 owner 或 maintainer（或 L0）可新增分类
+    # 权限检查：先读取 User 实体，再判定是否为 owner/maintainer/L0
     user = db.get(User, user_id)
     if service.owner_id != user_id and user not in service.maintainers and user.level.value != 0:  # type: ignore
         return {
@@ -204,6 +229,7 @@ def apiAddCategoryByServiceId(
             "message": "You are neither the owner nor the maintainer of this service",
         }
     # 检查 category 名称在该服务下是否已存在，保持同一服务中分类名唯一
+    # 检查同名分类是否已存在（在同一 service 范围内）
     existing_category = (
         db.query(ApiCategory)
         .filter(ApiCategory.service_id == service_id, ApiCategory.name == category_name)
@@ -239,7 +265,7 @@ def apiDeleteCategoryById(db: Session, category_id: int, user_id: int) -> dict:
             "status": -1,
             "message": "Category not found",
         }
-    # 非L0用户只能操作自己的服务
+    # 权限检查：验证用户存在并具有操作权限（owner/maintainer/L0）
     user = db.get(User, user_id)
     if not user:
         return {
@@ -278,7 +304,9 @@ def apiUpdateCategoryById(
             "status": -1,
             "message": "Category not found",
         }
-    # 非L0用户只能操作自己的服务
+    # 权限检查与参数校验：
+    # - user 必须存在；
+    # - 非 L0 用户只能由 owner 更新（这里采用更严格策略，只有 owner 可改名/描述）。
     user = db.get(User, user_id)
     if not user:
         return {
@@ -339,7 +367,7 @@ def apiUpdateApiCategory(
             "status": -1,
             "message": "Api not found",
         }
-    # 非L0用户只能操作自己的服务
+    # 权限检查：仅允许 owner/maintainer（或 L0）修改正式 API 的分类
     user = db.get(User, user_id)
     if not user:
         return {
@@ -411,6 +439,11 @@ def apiAddApi(
     if not check_res["is_ok"]:
         return check_res["error"]
     service_iteration = check_res["service_iteration"]
+    # checkServiceIterationPermission 返回结构说明：{
+    #   "is_ok": bool,
+    #   "error": {"status":..., "message":...} 或 None,
+    #   "service_iteration": ServiceIteration 实体（当 is_ok 为 True 时）
+    # }
     # 检查当前服务中是否已存在同名同路径的api
     # 当前服务最新版本的api
     existing_api = (
@@ -453,6 +486,7 @@ def apiAddApi(
         api_level = ApiLevel(level)
     except ValueError:
         api_level = ApiLevel.P2
+    # 说明：上面转换会在传入非法字符串时回退到默认值，避免抛出异常导致事务回退。
     # 若有category_id，检查category_id是否属于该服务
     if category_id is not None:
         category = db.get(ApiCategory, category_id)
@@ -528,6 +562,9 @@ def _copy_params_recursively(
             )
 
         db.add(new_param)
+        # flush 而非 commit：
+        # - flush 会把新增记录写入当前会话并分配主键（id），但不会提交事务；
+        # - 这样可以在同一事务内继续创建子记录并使用新记录的 id 建立外键关系，最后统一 commit。
         db.flush()  # 获取新创建记录的ID，便于递归创建子参数时设置 parent_param_id
 
         # 如果该参数含有子参数，则递归复制子参数
@@ -586,6 +623,7 @@ def apiCopyApiByApiDraftId(
         is_enabled=api_draft.is_enabled,
     )
     db.add(new_api_draft)
+    # flush 以获取 new_api_draft.id（在随后的参数复制中需要引用）
     db.flush()
 
     # 复制请求参数
@@ -612,6 +650,7 @@ def apiCopyApiByApiDraftId(
             param_model_class=ResponseParamDraft,
         )
 
+    # 所有复制操作完成后再 commit，保证原子性：要么全部复制成功并写入，要么在异常时回滚不留残余。
     db.commit()
     return {
         "status": 200,
@@ -645,13 +684,18 @@ def apiDeleteApiByApiDraftId(
             "message": "Api draft not belongs to this service iteration",
         }
     # 符合删除条件
+    # 这里使用 query.delete 并传入 synchronize_session=False：
+    # - 性能上比逐条删除更优，但需要注意 session 中未刷新的对象状态；
+    # - 使用 False 意味着 SQLAlchemy 不会尝试同步当前会话中的对象缓存。
     db.query(RequestParamDraft).filter(
         RequestParamDraft.api_draft_id == api_draft_id
     ).delete(synchronize_session=False)
     db.query(ResponseParamDraft).filter(
         ResponseParamDraft.api_draft_id == api_draft_id
     ).delete(synchronize_session=False)
+    # 删除草稿实体本身
     db.delete(api_draft)
+    # 提交事务，确保所有关联删除在同一原子事务内生效
     db.commit()
     return {
         "status": 200,
@@ -746,6 +790,8 @@ def _process_params_recursively(
     - 为子参数自动继承父参数的 `location`
     """
     for param in params:
+        # 基本字段解析：从传入 dict 中提取必要字段，遵循示例 JSON 的约定
+        # - name/type 为必填；其他字段允许缺省并由后续逻辑赋默认值
         param_name = param["name"]
         param_type = param["type"]
         param_required = param.get("required", False)
@@ -755,24 +801,29 @@ def _process_params_recursively(
         param_array_child_type = param.get("array_child_type")
         param_children = param.get("children")
 
-        # 确定参数位置：子参数继承父参数的 location
+        # 确定参数位置（location）：子参数会继承父参数的位置
+        # - parent_location 存在时表示当前正在处理的参数是子参数，应继承该值；
+        # - 否则从 param dict 读取，缺省为 'body'（常用于复杂对象）
         if parent_location:
             param_location = parent_location
         else:
             param_location = param.get("location", "body")
 
-        # 验证并转换枚举值
+        # 将位置字符串转换为枚举，非法值回退为 ParamLocation.BODY
         try:
             param_location_enum = ParamLocation(param_location)
         except ValueError:
+            # 回退保证不会因为外部传入非法字符串而抛出异常
             param_location_enum = ParamLocation.BODY
 
+        # 将类型字符串转换为枚举，非法值回退为字符串类型
         try:
             param_type_enum = ParamType(param_type)
         except ValueError:
             param_type_enum = ParamType.STRING
 
-        # 处理array_child_type
+        # 处理数组元素类型（如果参数为 array，则 array_child_type 指定元素类型）
+        # - 如果无法解析为 ParamType，则设为 None，表示未知/任意元素类型
         param_array_child_type_enum = None
         if param_array_child_type:
             try:
