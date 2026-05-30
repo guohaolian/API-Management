@@ -1,3 +1,13 @@
+"""服务层通用工具函数。
+
+这个模块主要承担三类工作：
+1. 对 service iteration 的操作权限做统一校验。
+2. 将 RequestParam / ResponseParam 按 location 或 status_code 重新组织。
+3. 将内部数据结构转换为 OpenAPI 3.1.0 文档。
+
+这里的实现会直接读取 ORM 对象并组装字典，因此大量逻辑都围绕“转换”和“递归展开”展开。
+"""
+
 from database.models import Api
 from database.models import ApiDraft
 from sqlalchemy.orm import Session
@@ -22,6 +32,7 @@ def checkServiceIterationPermission(
     service_iteration_id: int,
     user_id: int,
 ) -> dict:
+    # 先按主键读取迭代记录，避免后续在不存在对象上继续访问关系属性
     service_iteration = db.get(ServiceIteration, service_iteration_id)
     if not service_iteration or service_iteration.is_committed:  # type: ignore
         return {
@@ -31,7 +42,7 @@ def checkServiceIterationPermission(
                 "message": "Service iteration not found or committed",
             },
         }
-    # 已提交的迭代，不可进行迭代操作
+    # 已提交的迭代，不可进行迭代操作；这类请求直接视为非法上下文
     if service_iteration.is_committed:  # type: ignore
         return {
             "is_ok": False,
@@ -40,7 +51,8 @@ def checkServiceIterationPermission(
                 "message": "Service iteration has been committed",
             },
         }
-    # 非L0用户，为当前service owner或当前迭代creator，才有权限进行迭代操作（维护者也不可操作别人的迭代）
+    # 非 L0 用户只有两类人能改这个迭代：服务 owner 或该迭代 creator
+    # 维护者可以发起自己的迭代，但不能随意修改别人的迭代内容
     user = db.get(User, user_id)
     if (
         service_iteration.service.owner_id != user_id
@@ -65,7 +77,9 @@ def checkServiceIterationPermission(
 def organizeReqParams(
     request_params: List[RequestParam | RequestParamDraft],
 ) -> Dict[str, List[Dict]]:
+    # 先转换成纯字典，后续递归拼装 children 时更方便，也避免在 ORM 对象上原地改结构
     request_params_raw = [rp.toJson() for rp in request_params]
+    # 按 location 分桶，最后生成 OpenAPI 参数时可以直接对应到 query/path/header/cookie/body
     request_params_by_location = {
         ParamLocation.QUERY.value: [],
         ParamLocation.PATH.value: [],
@@ -75,7 +89,8 @@ def organizeReqParams(
     }
     # 构建id到param的索引表，用于处理子参数
     req_index = {p["id"]: p for p in request_params_raw}
-    # 处理location、type、array_child_type等枚举值，将其转换为对应的value
+    # 处理 location、type、array_child_type 等字段：如果还保留着枚举对象，先取其 value
+    # 这样后面的 OpenAPI 组装只需要处理字符串，不用关心 ORM/Enum 细节
     for p in request_params_raw:
         loc = p.get("location")
         p["location"] = getattr(loc, "value", loc)
@@ -89,6 +104,7 @@ def organizeReqParams(
         if parent_id:
             parent = req_index.get(parent_id)
             if parent is not None:
+                # children_params 只在需要时创建，避免给所有节点都塞一个空数组
                 parent.setdefault("children_params", []).append(p)
         # 不存在parent_param_id的参数为根参数，根据location添加到对应的列表中
         else:
@@ -100,10 +116,11 @@ def organizeReqParams(
 def organizeRespParams(
     response_params: List[ResponseParam | ResponseParamDraft],
 ) -> Dict[str, List[Dict]]:
+    # 响应参数同样先降维成字典，方便后面按 status_code 分组并重建树形结构
     response_params_raw = [rp.toJson() for rp in response_params]
     # 构建id到param的索引表，用于处理子参数
     resp_index = {p["id"]: p for p in response_params_raw}
-    # 处理type、array_child_type等枚举值，将其转换为对应的value
+    # 将枚举值统一转成基础类型，避免后续 schema 生成时出现 Enum 对象
     for p in response_params_raw:
         t = p.get("type")
         p["type"] = getattr(t, "value", t)
@@ -116,6 +133,7 @@ def organizeRespParams(
         if parent_id:
             parent = resp_index.get(parent_id)
             if parent is not None:
+                # 响应参数树的节点结构与请求参数一致，复用 children_params 的命名
                 parent.setdefault("children_params", []).append(p)
         # 不存在parent_param_id的参数为根参数，根据status_code添加到对应的列表中
         else:
@@ -138,6 +156,7 @@ def openapiTemplate(service: Service | ServiceIteration, is_latest: bool) -> Dic
     """
     contact: User = service.owner if is_latest else service.creator
     apis: List[Api | ApiDraft] = service.apis if is_latest else service.api_drafts
+    # paths 保存 OpenAPI 的路径树，components_schemas 保存可复用的 schema 片段
     paths = {}
     components_schemas = {}
 
@@ -156,6 +175,7 @@ def openapiTemplate(service: Service | ServiceIteration, is_latest: bool) -> Dic
         将内部类型映射为 OpenAPI 支持的数据类型。
         例如：int -> integer (int64), double -> number (double)
         """
+        # 这里使用显式映射，而不是猜测类型，保证输出是稳定且可读的 OpenAPI schema
         mapping = {
             "string": {"type": "string"},
             "int": {"type": "integer", "format": "int64"},
@@ -174,9 +194,11 @@ def openapiTemplate(service: Service | ServiceIteration, is_latest: bool) -> Dic
         - 如果是 array 类型，递归构建 items。
         - 处理 description, example, default 等元数据。
         """
+        # 先拿到基础 schema，再按类型进行增强，避免分支里重复初始化
         schema = _get_type_schema(param.get("type", "string"))
 
         if param.get("type") == "object":
+            # object 需要递归展开 children_params，转成 properties / required
             properties = {}
             required = []
             for child in param.get("children_params", []):
@@ -190,6 +212,7 @@ def openapiTemplate(service: Service | ServiceIteration, is_latest: bool) -> Dic
                 schema["required"] = required
 
         elif param.get("type") == "array":
+            # 数组元素类型由 array_child_type 决定，object 数组需要继续递归处理 children
             child_type = param.get("array_child_type", "string")
             if child_type == "object":
                 item_schema = {"type": "object"}
@@ -208,8 +231,10 @@ def openapiTemplate(service: Service | ServiceIteration, is_latest: bool) -> Dic
             else:
                 schema["items"] = _get_type_schema(child_type)
 
+        # example 是可选元数据，存在就透传到 schema
         if param.get("example"):
             schema["example"] = param.get("example")
+        # default_value 需要根据类型做转换，否则 OpenAPI 文档里会出现字符串化的默认值
         if param.get("default_value"):
             if (
                 param.get("default_value") == "null"
@@ -217,6 +242,7 @@ def openapiTemplate(service: Service | ServiceIteration, is_latest: bool) -> Dic
             ):
                 schema["default"] = None
             else:
+                # Python 的 match/case 用来把默认值转换成正确的 Python 基础类型
                 match param.get("type"):
                     case "string":
                         schema["default"] = str(param.get("default_value"))
@@ -237,6 +263,7 @@ def openapiTemplate(service: Service | ServiceIteration, is_latest: bool) -> Dic
         将一组参数列表转换为一个 Object Schema。
         如果提供了 schema_name，则将其注册到 components 中并返回引用。
         """
+        # 根对象统一用 object 包裹，children 变成 properties，required 单独收集
         schema = {
             "type": "object",
             "properties": {},
@@ -247,27 +274,30 @@ def openapiTemplate(service: Service | ServiceIteration, is_latest: bool) -> Dic
             schema["properties"][p["name"]] = _build_param_schema(p)
             if p.get("required"):
                 schema["required"].append(p["name"])
+        # OpenAPI 中空 required 没有意义，清理掉以减少输出噪音
         if not schema["required"]:
             del schema["required"]
 
         if schema_name:
+            # schema_name 存在时，优先注册到 components，正文里只保留 $ref
             components_schemas[schema_name] = schema
             return {"$ref": f"#/components/schemas/{schema_name}"}
 
         return schema
 
     for api in apis:
-        # 处理request_params
+        # 先把请求和响应参数组织成便于 OpenAPI 生成的结构
         request_params_by_location = organizeReqParams(api.request_params)
-        # 处理response_params
         response_params_by_status_code = organizeRespParams(api.response_params)
 
         if api.path not in paths:
+            # 为每个 path 创建一级对象，再按 method 写入 operation
             paths.setdefault(api.path, {})
 
         parameters = []
         for loc in ["query", "path", "header", "cookie"]:
             for p in request_params_by_location.get(loc, []):
+                # OpenAPI parameter 对象：name + in + schema 是最核心的三项
                 param_obj = {
                     "name": p["name"],
                     "in": loc,
@@ -281,6 +311,7 @@ def openapiTemplate(service: Service | ServiceIteration, is_latest: bool) -> Dic
         request_body = None
         body_params = request_params_by_location.get("body", [])
         if body_params:
+            # body 参数统一包装成 application/json 的 requestBody
             req_name = _to_component_name(api.name) + "Request"
             request_body = {
                 "required": True,
@@ -293,6 +324,7 @@ def openapiTemplate(service: Service | ServiceIteration, is_latest: bool) -> Dic
 
         responses = {}
         for status_code, params in response_params_by_status_code.items():
+            # 不同状态码分别生成独立 response schema，便于前端按返回码理解结构
             suffix = "" if str(status_code) == "200" else str(status_code)
             resp_name = _to_component_name(api.name) + "Response" + suffix
             responses[status_code] = {
@@ -314,7 +346,7 @@ def openapiTemplate(service: Service | ServiceIteration, is_latest: bool) -> Dic
         if request_body:
             operation["requestBody"] = request_body
 
-        # Use api.method.value.lower() to ensure we get 'get', 'post', etc.
+        # 把 method 统一转成 OpenAPI 需要的小写 HTTP method 名称
         method_str = (
             api.method.value.lower()
             if hasattr(api.method, "value")
@@ -322,6 +354,7 @@ def openapiTemplate(service: Service | ServiceIteration, is_latest: bool) -> Dic
         )
         paths[api.path][method_str] = operation
 
+    # 组装最终 OpenAPI 文档，info / paths / components 三部分分别描述元信息、路由、可复用 schema
     return {
         "openapi": "3.1.0",
         "info": {

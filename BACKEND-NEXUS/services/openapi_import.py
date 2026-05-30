@@ -4,6 +4,8 @@ from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 from sqlalchemy.orm import Session  # SQLAlchemy 会话类型提示
 
+# 导入枚举与 ORM 模型：枚举用于把 OpenAPI 的类型/位置映射为内部受控值，
+# 模型用于创建相应的草稿实体
 from database.enums import HttpMethod, ParamLocation, ParamType
 from database.models import (
     ApiCategory,
@@ -217,22 +219,24 @@ def _deref_schema(
 
 
 def _map_schema_type(schema: Dict[str, Any]) -> Tuple[ParamType, Optional[ParamType]]:
+    # 读取 JSON Schema 的 type 与 format 字段以作映射决策
     t = schema.get("type")
     fmt = schema.get("format")
 
-    # 如果没有显式 type，但存在 properties，则可视为 object
+    # 如果缺失 type，但存在 properties，则通常表示一个对象类型
     if t is None and isinstance(schema.get("properties"), dict):
         return (ParamType.OBJECT, None)
 
+    # 映射基本类型
     if t == "object":
         return (ParamType.OBJECT, None)
     if t == "array":
-        # 对数组类型，尝试解析 items 的类型以得到 array_child_type
+        # 对数组类型，解析 items 字段以获得元素类型（array_child_type）
         items = schema.get("items")
         if isinstance(items, dict):
             item_t, _ = _map_schema_type(items)
             return (ParamType.ARRAY, item_t)
-        # 默认数组元素为 string
+        # items 不明确时，默认数组元素为 string
         return (ParamType.ARRAY, ParamType.STRING)
     if t == "integer":
         return (ParamType.INT, None)
@@ -241,10 +245,12 @@ def _map_schema_type(schema: Dict[str, Any]) -> Tuple[ParamType, Optional[ParamT
     if t == "boolean":
         return (ParamType.BOOLEAN, None)
     if t == "string":
+        # format 可以指示更特殊的字符串类型，例如 binary
         if fmt == "binary":
             return (ParamType.BINARY, None)
         return (ParamType.STRING, None)
 
+    # 缺省退回到字符串类型以保证兼容性
     return (ParamType.STRING, None)
 
 
@@ -310,8 +316,10 @@ def _create_request_param_from_schema(
         array_child_type=array_child_type if param_type == ParamType.ARRAY else None,
         parent_param_id=parent_param_id,
     )
+    # 将新创建的 param 对象加入到会话，但不提交：
+    # - db.add 将对象标记为 pending，flush 会将其写入 DB 并分配主键
+    # - 使用 flush 是为了在同一事务中获取 param.id 用于子参数的 parent_param_id
     db.add(param)
-    # flush 以便在递归创建子参数时能获取到新记录的 id
     db.flush()
 
     # 如果当前参数是 object，则遍历其 properties 并作为子参数递归创建
@@ -381,6 +389,7 @@ def _create_response_param_from_schema(
         array_child_type=array_child_type if param_type == ParamType.ARRAY else None,
         parent_param_id=parent_param_id,
     )
+    # 将响应参数加入会话并 flush 获得 id，后续用于递归子属性 parent_param_id
     db.add(param)
     db.flush()
 
@@ -487,8 +496,9 @@ def _fill_iteration_from_openapi(
         # 不存在则创建新分类并 flush 以获取 id
         new_cat = ApiCategory(service_id=service_id, name=tag_name, description=None)
         db.add(new_cat)
+        # flush 使数据库分配新记录的 id（在后续把 category_id 写入 api_draft 时可以使用）
         db.flush()
-        # 将新分类 id 缓存起来，避免多个 API 重复创建
+        # 缓存 id 并返回，避免在同一次导入中重复创建同名分类
         tag_to_category_id[tag_name] = new_cat.id
         return new_cat.id
 
@@ -512,12 +522,14 @@ def _fill_iteration_from_openapi(
         )
 
         # 仅处理常见的 HTTP 方法（忽略其它扩展方法）
+        # 仅处理常用 HTTP 方法：get/post/put/delete/patch；忽略 vendor/extension 方法
         for method in ("get", "post", "put", "delete", "patch"):
             op = path_item.get(method)
             if not isinstance(op, dict):
                 continue
 
             # 将方法字符串映射成内部 HttpMethod 枚举，若不可识别则记录警告并跳过
+            # 将方法字符串映射为内部 HttpMethod 枚举；如果枚举中不存在该方法则记录警告并跳过
             try:
                 method_enum = HttpMethod[method.upper()]
             except KeyError:
@@ -525,6 +537,7 @@ def _fill_iteration_from_openapi(
                 continue
 
             # 优先使用 operationId，其次使用 summary 作为 name 候选项
+            # 构造 API 名称：优先使用 operationId，再用 summary，否则由 method+path 推导
             operation_id = op.get("operationId")
             summary = op.get("summary")
             name_candidate = (
@@ -534,35 +547,33 @@ def _fill_iteration_from_openapi(
             )
             if not isinstance(name_candidate, str) or not name_candidate.strip():
                 name_candidate = _derive_api_name(method, path)
+            # 使用 slugify 来生成安全的 name，截断到 128 字符
             name = _slugify(name_candidate)[:128] or _derive_api_name(method, path)
 
             # 记录基础名称以便发生冲突时追加后缀
+            # 保证名称在本次导入中唯一：若重复则在尾部追加递增后缀
             base_name = name
-            # 后缀起始编号
             idx = 2
-            # 如果名称已被使用，则循环生成带后缀的唯一名
             while name in used_names:
-                # 构造后缀字符串，例如 _2
                 suffix = f"_{idx}"
-                # 若拼接后超过最大长度（128），先截断 base_name 再拼接后缀
+                # 若拼接后超长则先截断 base_name，再拼接后缀，保持总长度不超过 128
                 name = (
                     (base_name[: (128 - len(suffix))] + suffix)
                     if len(base_name) + len(suffix) > 128
                     else base_name + suffix
                 )
-                # 后缀编号递增用于下一次尝试
                 idx += 1
-            # 将最终确定的唯一名称加入已用集合，避免后续冲突
             used_names.add(name)
 
             # tags 列表的第一个 tag 用作分类名（若存在）
             # 从 operation 的 tags 中取第一个 tag 作为分类名（如果存在）
+            # 使用第一个 tag 作为分类名（如果存在），并获取/创建对应的 ApiCategory id
             tags = op.get("tags") if isinstance(op.get("tags"), list) else []
             first_tag = tags[0] if tags and isinstance(tags[0], str) else ""
-            # 获取或创建该分类的 id（若 tag 为空则返回 None）
             category_id = _get_or_create_category_id(first_tag)
 
             # 创建 ApiDraft 实体，注意 description 使用安全序列化函数
+            # 创建 ApiDraft 实体并写入会话（尚未提交）。description 优先使用 description 字段，退回到 summary
             api_draft = ApiDraft(
                 service_iteration_id=service_iteration_id,
                 owner_id=user_id,
@@ -580,6 +591,7 @@ def _fill_iteration_from_openapi(
             imported_api_count += 1
 
             # 汇总 path 级别和 operation 级别的 parameters，后续去重处理
+            # 汇总 path 级与 operation 级别的参数定义，后续按 (name,in) 去重
             all_parameters: List[Any] = []
             if isinstance(common_parameters, list):
                 all_parameters.extend(common_parameters)
@@ -590,11 +602,12 @@ def _fill_iteration_from_openapi(
                 all_parameters.extend(op_parameters)
 
             # 参数去重：使用 (name, in) 组合作为 key
+            # 去重并处理每个参数：使用 (name,in) 组合作为唯一键
             seen_param_keys: Set[Tuple[str, str]] = set()
             for p in all_parameters:
                 if not isinstance(p, dict):
                     continue
-                # 对可能为 $ref 的参数进行去引用解析，得到最终结构视图
+                # 对参数可能的 $ref 进行去引用，得到展平后的参数对象视图
                 p_resolved = _deref_schema(openapi_object, p, depth=0, seen_refs=set())
                 pname = p_resolved.get("name")
                 pin = p_resolved.get("in")
@@ -602,28 +615,28 @@ def _fill_iteration_from_openapi(
                     continue
                 key = (pname, pin)
                 if key in seen_param_keys:
-                    # 若已经处理过同名同位置参数则跳过（避免重复）
                     continue
                 seen_param_keys.add(key)
 
-                # 将 OpenAPI 中的 in 字段映射为内部 ParamLocation 枚举
+                # 将 OpenAPI 的 in 字段转换为内部 ParamLocation 枚举；若不支持则记录警告并跳过
                 try:
                     location_enum = ParamLocation(pin)
                 except Exception:
                     warnings.append(f"Unsupported param location: {pin}")
                     continue
 
-                # 从参数对象中取 schema（如果存在），否则使用空 dict
+                # 获取参数的 schema（若存在），否则使用空 dict 作为占位
                 schema = (
                     p_resolved.get("schema")
                     if isinstance(p_resolved.get("schema"), dict)
                     else {}
                 )
-                # path 参数默认是必需的，其他根据 required 字段判断
+                # path 类型参数在 OpenAPI 中应被视为必需
                 required = bool(p_resolved.get("required")) or (
                     location_enum == ParamLocation.PATH
                 )
-                # 将参数 schema 转换为 RequestParamDraft（会递归创建子参数）
+
+                # 将参数展平并写入 RequestParamDraft（内部会递归创建子属性）
                 _create_request_param_from_schema(
                     db=db,
                     doc=openapi_object,
@@ -639,9 +652,10 @@ def _fill_iteration_from_openapi(
                 imported_req_param_count += 1
 
             # 处理 requestBody：优先挑选 JSON schema 并根据是否为 object 展开为多个字段或作为整体 body
+            # 处理 requestBody：优先选取 JSON schema，并根据其是否为 object 决定展开为多字段或作为整体 body
             request_body = op.get("requestBody")
             if isinstance(request_body, dict):
-                # 解析 requestBody 可能为 $ref 的情况
+                # 先去引用 requestBody（支持 $ref）
                 rb_resolved = _deref_schema(openapi_object, request_body, depth=0, seen_refs=set())
                 schema = None
                 content = rb_resolved.get("content")
@@ -649,7 +663,7 @@ def _fill_iteration_from_openapi(
                     schema = _pick_content_schema(content)
                 if isinstance(schema, dict):
                     schema_resolved = _deref_schema(openapi_object, schema, depth=0, seen_refs=set())
-                    # 如果是 object，逐个属性创建 body 下的子参数
+                    # 若 schema 是对象，则逐个 properties 创建为 body 的子参数
                     if (
                         isinstance(schema_resolved.get("properties"), dict)
                         or schema_resolved.get("type") == "object"
@@ -667,7 +681,7 @@ def _fill_iteration_from_openapi(
                             )
                             imported_req_param_count += 1
                     else:
-                        # 非 object 类型（比如简单的数组或标量），将整个 body 视作一个字段名为 'body'
+                        # 非对象（例如数组或标量），把整个 request body 视为单个字段 'body'
                         _create_request_param_from_schema(
                             db=db,
                             doc=openapi_object,
@@ -681,19 +695,21 @@ def _fill_iteration_from_openapi(
                         imported_req_param_count += 1
 
             # 处理 responses：迭代每个 status code，挑选 content 中的 JSON schema 并展开
+            # 处理 responses：遍历每个 status code，挑选 JSON schema 并按是否为对象决定展开策略
             responses = op.get("responses")
             if isinstance(responses, dict):
                 for scode_raw, resp in responses.items():
-                    # 忽略 default 分支，专注于明确的数值状态码
+                    # 跳过 default 条目，专注数值状态码
                     if scode_raw == "default":
                         continue
                     try:
                         status_code = int(scode_raw)
                     except Exception:
-                        # 非数值的状态码忽略
+                        # 非标准数值状态码忽略
                         continue
                     if not isinstance(resp, dict):
                         continue
+                    # 去引用 response 对象以处理 $ref
                     resp_resolved = _deref_schema(openapi_object, resp, depth=0, seen_refs=set())
                     schema = None
                     content = resp_resolved.get("content")
@@ -703,7 +719,7 @@ def _fill_iteration_from_openapi(
                         continue
 
                     schema_resolved = _deref_schema(openapi_object, schema, depth=0, seen_refs=set())
-                    # 若 response body 是 object，则将其 properties 展开为多个 response 参数
+                    # 若 response body 为对象，则将 properties 展开为独立 response 参数
                     if (
                         isinstance(schema_resolved.get("properties"), dict)
                         or schema_resolved.get("type") == "object"
@@ -721,7 +737,7 @@ def _fill_iteration_from_openapi(
                             )
                             imported_resp_param_count += 1
                     else:
-                        # 非对象时，把整个响应体视为一个名为 data 的字段
+                        # 非对象时，将整个响应体视为名为 'data' 的字段并写入一条 response param
                         _create_response_param_from_schema(
                             db=db,
                             doc=openapi_object,
@@ -741,101 +757,6 @@ def _fill_iteration_from_openapi(
         "categories": len(tag_to_category_id),
         "warnings": warnings,
     }
-
-
-def import_openapi_to_new_iteration(
-    db: Session,
-    service_id: int,
-    openapi_object: Dict[str, Any],
-    user_id: int,
-) -> Dict[str, Any]:
-    """在指定 `service_id` 下创建一个新的 `ServiceIteration` 并将 OpenAPI 导入到该迭代中。
-
-    权限：调用者需为该服务的 owner 或 maintainer（或 L0 管理员）。
-    返回含导入统计信息的结果，或错误的 `status`/`message`。
-    """
-    service = db.get(Service, service_id)
-    # 根据 service_id 从数据库读取服务实体
-    service = db.get(Service, service_id)
-    if not service:
-        # 服务不存在则返回错误码
-        return {"status": -1, "message": "Service not found"}
-
-    user = db.get(User, user_id)
-    # 验证用户存在性
-    user = db.get(User, user_id)
-    if not user:
-        return {"status": -2, "message": "User not found"}
-
-    # 权限校验：若非 owner/maintainer 且不是 L0 管理员，则无权限导入
-    if service.owner_id != user_id and user not in service.maintainers and user.level.value != 0:  # type: ignore
-        return {"status": -3, "message": "You are neither the owner nor the maintainer of this service"}
-
-    existing = (
-        db.query(ServiceIteration)
-        .filter(
-            ServiceIteration.service_id == service_id,
-            ~ServiceIteration.is_committed,
-            ServiceIteration.creator_id == user_id,
-        )
-        .first()
-    )
-    # 检查是否已存在同一用户创建但未提交的 iteration，避免重复创建
-    if existing:
-        return {
-            "status": -4,
-            "message": "You have an uncommitted service iteration in progress",
-            "service_iteration_id": existing.id,
-        }
-
-    # 验证基本的 OpenAPI 结构（必须包含 paths 字段）
-    if not isinstance(openapi_object, dict) or not isinstance(openapi_object.get("paths"), dict):
-        return {"status": -5, "message": "Invalid OpenAPI document: missing 'paths'"}
-
-    # 简单检测 Swagger 2.0（目前不支持）
-    if "swagger" in openapi_object and "openapi" not in openapi_object:
-        return {"status": -6, "message": "Swagger 2.0 is not supported yet"}
-
-    # 从 OpenAPI 的 info 中提取描述，作为 iteration 的初始描述
-    info = openapi_object.get("info") if isinstance(openapi_object.get("info"), dict) else {}
-    iteration = ServiceIteration(
-        service_id=service_id,
-        creator_id=user_id,
-        version=None,
-        description=_safe_long_text(info.get("description")) or service.description,
-        is_committed=False,
-    )
-    # 将新 iteration 写入 session 并 flush 以获得 id
-    db.add(iteration)
-    db.flush()
-    # 尝试填充 iteration，如果出错回滚事务并返回错误
-    try:
-        imported = _fill_iteration_from_openapi(
-            db=db,
-            service_id=service_id,
-            service_iteration_id=iteration.id,
-            openapi_object=openapi_object,
-            user_id=user_id,
-        )
-        # 导入成功后提交事务
-        db.commit()
-    except Exception as e:
-        # 出错则回滚并返回带有异常信息的错误结构
-        db.rollback()
-        return {
-            "status": -7,
-            "message": f"Import OpenAPI failed: {e}",
-        }
-
-    return {
-        "status": 200,
-        "message": "Import OpenAPI to new iteration success",
-        "service_iteration_id": iteration.id,
-        "imported": {
-            **imported,
-        },
-    }
-
 
 def import_openapi_to_iteration(
     db: Session,

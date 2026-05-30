@@ -1,8 +1,22 @@
+"""服务相关的业务逻辑函数集合。
+
+包含：服务查询、创建、删除、维护者管理、迭代周期（ServiceIteration）的发起/提交/导入/导出等操作。
+约定：所有函数第一个参数均为 SQLAlchemy 的 `Session`（`db`），返回字典形式的结果，包含 `status`/`message`，
+必要时返回额外字段（例如 `service` / `services` / `service_iteration_id` 等）。
+"""
+
 from datetime import datetime, timezone
+
+# 发送邮件工具（async）
 from mailer import send_email
+
+# SQLAlchemy 会话类型注解
 from sqlalchemy.orm import Session
+
+# 用于解码 URL 编码的 service_uuid
 from urllib.parse import unquote
 
+# 导入 ORM 模型：用于 CRUD 与实体关系导航
 from database.models import (
     User,
     Service,
@@ -14,24 +28,26 @@ from database.models import (
     RequestParamDraft,
     ResponseParamDraft,
 )
+
+# 辅助工具：权限校验与 OpenAPI 模板导出
 from services.utils import checkServiceIterationPermission, openapiTemplate
-from services.openapi_import import (
-    import_openapi_to_iteration,
-    import_openapi_to_new_iteration,
-)
+# OpenAPI 导入实现（封装好的函数）
+from services.openapi_import import import_openapi_to_iteration
 
 
 # 获取全部服务
 def serviceGetAllServices(
     db: Session, user_id: int, page_size: int, current_page: int
 ) -> dict:
-    # 非L0用户没有权限查看所有服务
+    # 权限检查：只有系统管理员（L0）可以查看所有服务
     user = db.get(User, user_id)
     if user.level.value != 0:  # type: ignore
         return {
             "status": -1,
             "message": "You don't have permission to view all services",
         }
+
+    # 构造分页查询：按 id 倒序返回当前页的 Service 实体列表
     services = (
         db.query(Service)
         .order_by(Service.id.desc())
@@ -39,7 +55,10 @@ def serviceGetAllServices(
         .offset((current_page - 1) * page_size)
         .all()
     )
+    # 总数用于前端分页显示
     total = db.query(Service).count()
+
+    # 序列化返回：只包含必要字段以减小负载
     return {
         "status": 200,
         "message": "Get services success",
@@ -65,37 +84,30 @@ def serviceGetAllServices(
 
 # 通过id获取服务详情
 def serviceGetServiceById(db: Session, id: int, user_id: int) -> dict:
+    # 读取 service 实体并检查存在性
     service = db.get(Service, id)
     if not service:
-        return {
-            "status": -1,
-            "message": "Service not found",
-        }
+        return {"status": -1, "message": "Service not found"}
+
+    # 权限校验：非 L0 用户只能查看自己拥有的服务
     user = db.get(User, user_id)
-    # 非L0用户只能查看自己的服务
     if service.owner_id != user_id and user.level.value != 0:  # type: ignore
-        return {
-            "status": -2,
-            "message": "You are not the owner of this service",
-        }
-    return {
-        "status": 200,
-        "message": "Get service success",
-        "service": service.toJson(include_relations=True),
-    }
+        return {"status": -2, "message": "You are not the owner of this service"}
+
+    # 包含关联关系返回完整服务信息（注意：不会包含 API 的参数，视 toJson 实现而定）
+    return {"status": 200, "message": "Get service success", "service": service.toJson(include_relations=True)}
 
 
 # 通过用户id获取用户的所有最新版本服务（Service表中）的列表
 def serviceGetHisNewestServicesByOwnerId(
     db: Session, owner_id: int, my_id: int, page_size: int, current_page: int
 ) -> dict:
-    # 非L0用户只能查看自己的服务
+    # 仅允许系统管理员或本人查询该用户的服务
     user = db.get(User, my_id)
     if user.level.value != 0 and owner_id != my_id:  # type: ignore
-        return {
-            "status": -1,
-            "message": "You are not the owner of these services",
-        }
+        return {"status": -1, "message": "You are not the owner of these services"}
+
+    # 查询未被软删除且属于 owner_id 的服务，按 id 倒序分页
     services = (
         db.query(Service)
         .filter(~Service.is_deleted, Service.owner_id == owner_id)
@@ -109,7 +121,8 @@ def serviceGetHisNewestServicesByOwnerId(
         .filter(~Service.is_deleted, Service.owner_id == owner_id)
         .count()
     )
-    # 查询自己的服务想：无需包含owner
+
+    # 如果查询的是自己的服务，可省略 owner 详情以减小返回体积
     if owner_id == my_id:
         services = [
             service.toJson(
@@ -141,25 +154,20 @@ def serviceGetHisNewestServicesByOwnerId(
             )
             for service in services
         ]
-    return {
-        "status": 200,
-        "message": "Get services success",
-        "services": services,
-        "total": total,
-    }
+
+    return {"status": 200, "message": "Get services success", "services": services, "total": total}
 
 
 # 通过用户id获取用户的所有维护服务（Service表中）的列表
 def serviceGetHisMaintainedServicesByUserId(
     db: Session, user_id: int, my_id: int, page_size: int, current_page: int
 ) -> dict:
-    # 非L0用户只能查看自己的服务
+    # 权限：非 L0 用户只能查看自己维护的服务（或查看自己）
     user = db.get(User, my_id)
     if user.level.value != 0 and user_id != my_id:  # type: ignore
-        return {
-            "status": -1,
-            "message": "You don't have authorization to view other users' maintained services",
-        }
+        return {"status": -1, "message": "You don't have authorization to view other users' maintained services"}
+
+    # 查询包含该用户为 maintainer 的服务
     services = (
         db.query(Service)
         .filter(~Service.is_deleted, Service.maintainers.any(User.id == user_id))
@@ -173,7 +181,8 @@ def serviceGetHisMaintainedServicesByUserId(
         .filter(~Service.is_deleted, Service.maintainers.any(User.id == user_id))
         .count()
     )
-    # 因为是维护的服务，所以owner肯定不是自己，因此总是返回owner信息
+
+    # 返回 owner 信息，因为维护的服务的 owner 通常不是查询者
     services = [
         service.toJson(
             include=[
@@ -189,12 +198,8 @@ def serviceGetHisMaintainedServicesByUserId(
         )
         for service in services
     ]
-    return {
-        "status": 200,
-        "message": "Get services success",
-        "services": services,
-        "total": total,
-    }
+
+    return {"status": 200, "message": "Get services success", "services": services, "total": total}
 
 
 # 通过service_uuid和version获取服务详情（根据version判断是否为最新版本）
@@ -421,37 +426,32 @@ def serviceAddOrRemoveServiceMaintainerById(
             "status": -1,
             "message": "Service not found",
         }
+    # 操作发起人
     user = db.get(User, user_id)
-    # 非L0用户只能为自己的服务添加maintainer
+    # 权限：非 L0 用户只能在自己拥有的服务上管理 maintainer
     if service.owner_id != user_id and user.level.value != 0:  # type: ignore
-        return {
-            "status": -2,
-            "message": "You are not the owner of this service",
-        }
+        return {"status": -2, "message": "You are not the owner of this service"}
+
+    # 不允许把 owner 自己设为 maintainer
     if service.owner_id == candidate_id:
-        return {
-            "status": -4,
-            "message": "Service owner cannot be added as a maintainer",
-        }
+        return {"status": -4, "message": "Service owner cannot be added as a maintainer"}
+
+    # 候选用户必须存在
     candidate = db.get(User, candidate_id)
     if not candidate:
-        return {
-            "status": -3,
-            "message": "Candidate not found",
-        }
-    # 检查用户是否已为maintainer
+        return {"status": -3, "message": "Candidate not found"}
+
+    # 如果已存在则移除，否则添加；关系属性（many-to-many）在内存中修改，最后 commit
     if candidate in service.maintainers:  # type: ignore
         service.maintainers.remove(candidate)  # type: ignore
         message = "Remove service maintainer success"
     else:
         service.maintainers.append(candidate)  # type: ignore
         message = "Add service maintainer success"
+
+    # 持久化更改
     db.commit()
-    return {
-        "status": 200,
-        "message": message,
-        "is_current_maintainer": candidate in service.maintainers,  # type: ignore
-    }
+    return {"status": 200, "message": message, "is_current_maintainer": candidate in service.maintainers}  # type: ignore
 
 
 # 通过服务id删除服务（最新版本），历史版本不动
@@ -462,20 +462,16 @@ def serviceDeleteServiceById(db: Session, id: int, user_id: int) -> dict:
             "status": -1,
             "message": "Service not found",
         }
+    # 权限检查：删除为软删除操作，仅允许 owner 或 L0
     user = db.get(User, user_id)
-    # 非L0用户只能删除自己的服务
     if service.owner_id != user_id and user.level.value != 0:  # type: ignore
-        return {
-            "status": -2,
-            "message": "You are not the owner of this service",
-        }
+        return {"status": -2, "message": "You are not the owner of this service"}
+
+    # 标记为已删除并记录删除时间（软删除），避免直接物理删除导致数据丢失
     service.is_deleted = True  # type: ignore
     service.deleted_at = datetime.now(timezone.utc)  # type: ignore
     db.commit()
-    return {
-        "status": 200,
-        "message": "Delete service success",
-    }
+    return {"status": 200, "message": "Delete service success"}
 
 
 # 通过服务id还原服务（还原最新版本），历史版本不动
@@ -486,25 +482,19 @@ def serviceRestoreServiceById(db: Session, id: int, user_id: int) -> dict:
             "status": -1,
             "message": "Service not found",
         }
+    # 权限检查：仅 owner 或 L0 可还原软删除的服务
     user = db.get(User, user_id)
-    # 非L0用户只能还原自己的服务
     if service.owner_id != user_id and user.level.value != 0:  # type: ignore
-        return {
-            "status": -2,
-            "message": "You are not the owner of this service",
-        }
+        return {"status": -2, "message": "You are not the owner of this service"}
+
+    # 只有已标记为删除的服务才可还原
     if not service.is_deleted:  # type: ignore
-        return {
-            "status": -3,
-            "message": "Service is not deleted",
-        }
+        return {"status": -3, "message": "Service is not deleted"}
+
     service.is_deleted = False  # type: ignore
     service.deleted_at = None  # type: ignore
     db.commit()
-    return {
-        "status": 200,
-        "message": "Restore service success",
-    }
+    return {"status": 200, "message": "Restore service success"}
 
 
 # 通过service_iteration_id删除服务历史版本
@@ -521,23 +511,19 @@ def serviceDeleteIterationById(
             "status": -1,
             "message": "No service iteration found",
         }
+    # 只有 service owner、iteration creator 或系统管理员可以删除迭代记录
     user = db.get(User, user_id)
-    # 非L0用户，为当前service owner或当前迭代creator，才有权限删除
     if (
         service_iteration.service.owner_id != user_id
         and service_iteration.creator_id != user_id
         and user.level.value != 0  # type: ignore
     ):
-        return {
-            "status": -2,
-            "message": "You are neither the owner of this service, nor the creator of this service iteration",
-        }
+        return {"status": -2, "message": "You are neither the owner of this service, nor the creator of this service iteration"}
+
+    # 物理删除该迭代（包含关联的 api_drafts / param drafts，取决于 ORM 的 cascade 设置）
     db.delete(service_iteration)
     db.commit()
-    return {
-        "status": 200,
-        "message": "Delete service iteration success",
-    }
+    return {"status": 200, "message": "Delete service iteration success"}
 
 
 # ---- ⚠️ 以下为service迭代流程相关方法 ----
@@ -549,23 +535,16 @@ def serviceGetServiceIterationById(db: Session, id: int, user_id: int) -> dict:
             "status": -1,
             "message": "Service iteration not found",
         }
+    # 权限与状态检查：未提交的迭代才允许被查看；只有 owner/creator/L0 可读
     user = db.get(User, user_id)
-    # 非L0用户，为当前service owner或maintainer或当前迭代creator，才有权限查看
     if iteration.creator_id != user_id and iteration.service.owner_id != user_id and user.level.value != 0:  # type: ignore
-        return {
-            "status": -2,
-            "message": "You are neither the owner of this service, nor the creator of this service iteration",
-        }
+        return {"status": -2, "message": "You are neither the owner of this service, nor the creator of this service iteration"}
+
     if iteration.is_committed:
-        return {
-            "status": -3,
-            "message": "Service iteration has been committed",
-        }
-    return {
-        "status": 200,
-        "message": "Get service iteration success",
-        "iteration": iteration.toJson(include_relations=True),
-    }
+        # 已提交的迭代不允许在编辑上下文中打开
+        return {"status": -3, "message": "Service iteration has been committed"}
+
+    return {"status": 200, "message": "Get service iteration success", "iteration": iteration.toJson(include_relations=True)}
 
 
 # 发起service迭代流程
@@ -577,21 +556,23 @@ def serviceStartIteration(db: Session, service_id: int, user_id: int) -> dict:
             "status": -1,
             "message": "Service not found",
         }
-    # 非L0用户，为当前service owner或当前迭代creator，才有权限发起迭代
+    # service 存在性检查
+    curr_service = db.get(Service, service_id)
+    if not curr_service:
+        return {"status": -1, "message": "Service not found"}
+
+    # 权限：owner、maintainer 或 L0 可发起迭代
     user = db.get(User, user_id)
     if curr_service.owner_id != user_id and user not in curr_service.maintainers and user.level.value != 0:  # type: ignore
-        return {
-            "status": -2,
-            "message": "You are neither the owner nor the maintainer of this service",
-        }
-    # 检查当前用户是否已存在未提交的迭代周期
+        return {"status": -2, "message": "You are neither the owner nor the maintainer of this service"}
+
+    # 检查是否已有未提交的同一发起人迭代（每个发起人只能同时有一个未提交的迭代）
     existing_new_iteration = (
         db.query(ServiceIteration)
         .filter(
             ServiceIteration.service_id == service_id,
             ~ServiceIteration.is_committed,
-            ServiceIteration.creator_id
-            == user_id,  # 同个迭代周期通过service_id和creator_id标识
+            ServiceIteration.creator_id == user_id,  # 同个迭代周期通过 service_id 和 creator_id 标识
         )
         .first()
     )
@@ -601,7 +582,8 @@ def serviceStartIteration(db: Session, service_id: int, user_id: int) -> dict:
             "message": "You have an uncommitted service iteration in progress",
             "service_iteration_id": existing_new_iteration.id,
         }
-    # 符合发起迭代条件
+
+    # 新建 ServiceIteration（is_committed=False）并 flush 获取 id 以便后续创建 draft
     new_iteration = ServiceIteration(
         service_id=service_id,
         creator_id=user_id,
@@ -611,7 +593,8 @@ def serviceStartIteration(db: Session, service_id: int, user_id: int) -> dict:
     )
     db.add(new_iteration)
     db.flush()  # 获取 new_iteration.id
-    # 将当前服务最新版本全部信息备份到新迭代周期
+
+    # 把当前 service 的最新 API 全部复制为 ApiDraft（包括其 request/response params 的结构）
     for api in curr_service.apis:
         api_draft = ApiDraft(
             service_iteration_id=new_iteration.id,
@@ -627,7 +610,7 @@ def serviceStartIteration(db: Session, service_id: int, user_id: int) -> dict:
         db.add(api_draft)
         db.flush()
 
-        # 建立请求参数的ID映射关系
+        # 由于参数是树形结构（parent_param_id 指向父节点），需要先创建所有节点并记录 id 映射，随后再修补 parent_param_id
         req_param_id_mapping = {}
         for req in api.request_params:
             request_param_draft = RequestParamDraft(
@@ -640,26 +623,22 @@ def serviceStartIteration(db: Session, service_id: int, user_id: int) -> dict:
                 description=req.description,
                 example=req.example,
                 array_child_type=req.array_child_type,
-                parent_param_id=None,  # 先设为None，后续更新
+                parent_param_id=None,  # 先设为 None，后续更新
             )
             db.add(request_param_draft)
             db.flush()
             req_param_id_mapping[req.id] = request_param_draft.id
 
-        # 更新请求参数的parent_param_id
+        # 修补 parent_param_id：把原始 param 的 parent id 映射为 draft 中的新 id
         for req in api.request_params:
             if req.parent_param_id is not None:
                 draft_param = (
-                    db.query(RequestParamDraft)
-                    .filter(RequestParamDraft.id == req_param_id_mapping[req.id])
-                    .first()
+                    db.query(RequestParamDraft).filter(RequestParamDraft.id == req_param_id_mapping[req.id]).first()
                 )
                 if draft_param:
-                    draft_param.parent_param_id = req_param_id_mapping[
-                        req.parent_param_id
-                    ]
+                    draft_param.parent_param_id = req_param_id_mapping[req.parent_param_id]
 
-        # 建立响应参数的ID映射关系
+        # 同样处理响应参数
         resp_param_id_mapping = {}
         for resp in api.response_params:
             response_param_draft = ResponseParamDraft(
@@ -671,29 +650,26 @@ def serviceStartIteration(db: Session, service_id: int, user_id: int) -> dict:
                 description=resp.description,
                 example=resp.example,
                 array_child_type=resp.array_child_type,
-                parent_param_id=None,  # 先设为None，后续更新
+                parent_param_id=None,  # 先设为 None，后续更新
             )
             db.add(response_param_draft)
             db.flush()
             resp_param_id_mapping[resp.id] = response_param_draft.id
 
-        # 更新响应参数的parent_param_id
         for resp in api.response_params:
             if resp.parent_param_id is not None:
                 draft_param = (
-                    db.query(ResponseParamDraft)
-                    .filter(ResponseParamDraft.id == resp_param_id_mapping[resp.id])
-                    .first()
+                    db.query(ResponseParamDraft).filter(ResponseParamDraft.id == resp_param_id_mapping[resp.id]).first()
                 )
                 if draft_param:
-                    draft_param.parent_param_id = resp_param_id_mapping[
-                        resp.parent_param_id
-                    ]
+                    draft_param.parent_param_id = resp_param_id_mapping[resp.parent_param_id]
+
+    # 持久化所有 draft 创建操作
     db.commit()
     return {
         "status": 200,
         "message": "Start service iteration success",
-        "service_iteration_id": new_iteration.id,  # 存在前端，在一个service迭代周期内作为唯一标识
+        "service_iteration_id": new_iteration.id,  # 前端使用该 id 作为该发起人的唯一迭代标识
     }
 
 
@@ -711,18 +687,18 @@ async def serviceCommitIteration(
         return check_res
     service_iteration = check_res["service_iteration"]
     service = service_iteration.service
+    # 确保新版本号不同于当前 service 的版本
     if new_version == service.version:
-        return {
-            "status": -1,
-            "message": "New version is the same as current version",
-        }
-    # 符合提交迭代条件
-    # 将service_iteration全部信息更新到service
+        return {"status": -1, "message": "New version is the same as current version"}
+
+    # 把迭代信息同步为 service 的正式版本信息
     service.description = service_iteration.description
     service.version = new_version
-    # 递归删除service下所有api，并通过CASCADE删除api下所有相关的request_params和response_params
+
+    # 先删除 service 下所有历史 Api（以及级联的 request/response params），采用 bulk delete 提高性能
     db.query(Api).filter(Api.service_id == service.id).delete(synchronize_session=False)
 
+    # 把 api_drafts 转换为正式 Api 与其参数
     for api_draft in service_iteration.api_drafts:
         new_api = Api(
             service_id=service.id,
@@ -738,7 +714,7 @@ async def serviceCommitIteration(
         db.add(new_api)
         db.flush()
 
-        # 建立请求参数的ID映射关系
+        # 参数同样需要两步：先创建节点并记录 id 映射，再修补 parent 指针
         req_param_id_mapping = {}
         for req in api_draft.request_params:
             request_param = RequestParam(
@@ -751,24 +727,20 @@ async def serviceCommitIteration(
                 description=req.description,
                 example=req.example,
                 array_child_type=req.array_child_type,
-                parent_param_id=None,  # 先设为None，后续更新
+                parent_param_id=None,  # 先设为 None，后续更新
             )
             db.add(request_param)
             db.flush()
             req_param_id_mapping[req.id] = request_param.id
 
-        # 更新请求参数的parent_param_id
         for req in api_draft.request_params:
             if req.parent_param_id is not None:
                 param = (
-                    db.query(RequestParam)
-                    .filter(RequestParam.id == req_param_id_mapping[req.id])
-                    .first()
+                    db.query(RequestParam).filter(RequestParam.id == req_param_id_mapping[req.id]).first()
                 )
                 if param:
                     param.parent_param_id = req_param_id_mapping[req.parent_param_id]
 
-        # 建立响应参数的ID映射关系
         resp_param_id_mapping = {}
         for resp in api_draft.response_params:
             response_param = ResponseParam(
@@ -780,33 +752,34 @@ async def serviceCommitIteration(
                 description=resp.description,
                 example=resp.example,
                 array_child_type=resp.array_child_type,
-                parent_param_id=None,  # 先设为None，后续更新
+                parent_param_id=None,
             )
             db.add(response_param)
             db.flush()
             resp_param_id_mapping[resp.id] = response_param.id
 
-        # 更新响应参数的parent_param_id
         for resp in api_draft.response_params:
             if resp.parent_param_id is not None:
                 param = (
-                    db.query(ResponseParam)
-                    .filter(ResponseParam.id == resp_param_id_mapping[resp.id])
-                    .first()
+                    db.query(ResponseParam).filter(ResponseParam.id == resp_param_id_mapping[resp.id]).first()
                 )
                 if param:
                     param.parent_param_id = resp_param_id_mapping[resp.parent_param_id]
 
+    # 标记 iteration 为已提交并持久化整个事务（包含 service、api、params 的更新）
     service_iteration.version = new_version
     service_iteration.is_committed = True
     db.commit()
-    # 发送邮件通知当前service全部相关人
-    # 收集收件人并去重
+    # 发送邮件通知：收集 owner + maintainers 的邮件地址并去重
     recipients = {service.owner.email}
     for maintainer in service.maintainers:
         if maintainer.email:
             recipients.add(maintainer.email)
+
+    # checkServiceIterationPermission 返回的 operator（执行者）信息
     operator = check_res["user"]
+
+    # 异步发送邮件，失败仅打印日志不影响主流程
     mailRes = await send_email(
         to_email=list(recipients),
         subject=f"服务 {service.service_uuid} 版本更新",
@@ -817,7 +790,9 @@ async def serviceCommitIteration(
         ),
     )
     if mailRes["status"] != 200:
+        # 邮件失败只是通知问题，不回滚已经提交的版本变更
         print(f"Send email failed: {mailRes.get('message', 'Unknown error')}")
+
     return {
         "status": 200,
         "message": "Commit service iteration success",
@@ -837,14 +812,12 @@ def serviceUpdateDescription(
     )
     if not check_res["is_ok"]:
         return check_res["error"]
+
     service_iteration = check_res["service_iteration"]
-    # 符合修改条件
+    # 直接更新 description 字段并 commit（描述修改只影响迭代对象，不触及 service 正式数据）
     service_iteration.description = description
     db.commit()
-    return {
-        "status": 200,
-        "message": "Update service description success",
-    }
+    return {"status": 200, "message": "Update service description success"}
 
 
 # 导出openapi
@@ -866,63 +839,32 @@ def serviceExportOpenapiByUuidAndVersion(
             "status": -1,
             "message": "Service not found",
         }
-    # 判断是否最新版本（当前version是否与curr_service版本一致，或version为latest）
+    # 判断请求的版本是否为最新：如果 version 与 curr_service.version 相同或传入 "latest"
     if curr_service.version == version or version == "latest":  # type: ignore
         is_latest = True
         service = curr_service
     else:
+        # 否则查找历史迭代记录（ServiceIteration）
         is_latest = False
         service = (
             db.query(ServiceIteration)
-            .filter(
-                ServiceIteration.service_id == curr_service.id,
-                ServiceIteration.version == version,
-            )
+            .filter(ServiceIteration.service_id == curr_service.id, ServiceIteration.version == version)
             .first()
         )
         if not service:
-            return {
-                "status": -2,
-                "message": "Service version not found",
-            }
+            return {"status": -2, "message": "Service version not found"}
 
+    # 权限：最新版本的访问需要 owner/maintainer/L0；历史版本的访问需要 creator 或者 owner/L0
     user = db.get(User, user_id)
-    # 非L0用户，为当前service owner或maintainer或当前迭代creator，才有权限查看
     if curr_service.owner_id != user_id and user not in curr_service.maintainers and user.level.value != 0:  # type: ignore
-        if is_latest:  # 最新版
-            return {
-                "status": -3,
-                "message": "You are neither the owner nor the maintainer of this service",
-            }
-        elif service.creator_id != user_id:  # type: ignore  # 历史版本，需判断是否为当前迭代creator
-            return {
-                "status": -4,
-                "message": "You are not the creator of this service iteration",
-            }
-    openapi = openapiTemplate(
-        service=service,
-        is_latest=is_latest,
-    )
-    return {
-        "status": 200,
-        "message": "Get service success",
-        "openapi_object": openapi,
-        "is_latest": is_latest,
-    }
+        if is_latest:
+            return {"status": -3, "message": "You are neither the owner nor the maintainer of this service"}
+        elif service.creator_id != user_id:  # type: ignore
+            return {"status": -4, "message": "You are not the creator of this service iteration"}
 
-
-def serviceImportOpenapiToNewIteration(
-    db: Session,
-    service_id: int,
-    openapi_object: dict,
-    user_id: int,
-) -> dict:
-    return import_openapi_to_new_iteration(
-        db=db,
-        service_id=service_id,
-        openapi_object=openapi_object,
-        user_id=user_id,
-    )
+    # 使用 openapiTemplate 生成 OpenAPI 对象（该方法封装了模型到 OpenAPI 的转换）
+    openapi = openapiTemplate(service=service, is_latest=is_latest)
+    return {"status": 200, "message": "Get service success", "openapi_object": openapi, "is_latest": is_latest}
 
 
 def serviceImportOpenapiToIteration(

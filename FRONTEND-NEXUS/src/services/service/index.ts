@@ -203,16 +203,6 @@ export const ExportOpenapiByUuidAndVersion = async (
     );
 };
 
-// 导入 OpenAPI：创建一个新的迭代，并将 OpenAPI 写入草稿
-export const ImportOpenapiToNewIteration = async (
-    data: ImportOpenapiToNewIterationRequest
-) => {
-    return api.post<ImportOpenapiToNewIterationResponse>(
-        `${prefix}/importOpenapiToNewIteration`,
-        data
-    );
-};
-
 // 导入 OpenAPI：导入到当前迭代（覆写草稿）
 export const ImportOpenapiToIteration = async (
     data: ImportOpenapiToIterationRequest
