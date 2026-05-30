@@ -769,9 +769,6 @@ def import_openapi_to_iteration(
     行为：先清空该 iteration 下现有的草稿（`ApiDraft` 等），然后按文档重新生成草稿。
     返回导入统计或错误信息。
     """
-    check_res = checkServiceIterationPermission(
-        db=db, service_iteration_id=service_iteration_id, user_id=user_id
-    )
     # 校验当前用户对指定 iteration 的操作权限
     check_res = checkServiceIterationPermission(
         db=db, service_iteration_id=service_iteration_id, user_id=user_id

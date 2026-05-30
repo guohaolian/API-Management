@@ -5,9 +5,9 @@ const Footer: React.FC = () => {
     return (
         <div className={styles.footer}>
             <span>
-                Copyright © 2025 - {new Date().getFullYear()}{" "}
+                Copyright © {new Date().getFullYear()}{" "}
                 <a
-                    href="mailto:15947513567charlie@gmail.com"
+                    href="mailto:1040071899@qq.com"
                     style={{ color: "#007bff", textDecoration: "none" }}
                 >
                     Guo HL
