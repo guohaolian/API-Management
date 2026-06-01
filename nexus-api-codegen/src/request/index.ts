@@ -3,7 +3,8 @@ import type { AxiosError, AxiosInstance, AxiosRequestConfig } from "axios";
 import { TokenManager } from "../utils/data-manager";
 import { UserProfile } from "../services/apis/user/types";
 
-//const BASE_URL = "https://cam-api.com/api";
+/** 生产环境后端地址（发布 npm 前确认与服务器一致） */
+
 const BASE_URL = "http://127.0.0.1:1024";
 
 const getAccessToken = (): string => {
