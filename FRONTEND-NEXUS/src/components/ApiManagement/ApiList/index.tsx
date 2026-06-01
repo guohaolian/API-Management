@@ -14,6 +14,28 @@ import { CloseIconCAM, OpenIconCAM } from "@/assets/icons";
 
 const { Search } = Input;
 
+function filterApiTreeData(treeData: any[], keyword: string): any[] {
+    const kw = keyword.trim().toLowerCase();
+    if (!kw) {
+        return treeData;
+    }
+    return treeData
+        .map((group) => {
+            const categoryMatches = group.searchText?.includes(kw);
+            const children = group.children ?? [];
+            const filteredChildren = categoryMatches
+                ? children
+                : children.filter((child: any) =>
+                      child.searchText?.includes(kw),
+                  );
+            if (filteredChildren.length === 0) {
+                return null;
+            }
+            return { ...group, children: filteredChildren };
+        })
+        .filter(Boolean);
+}
+
 interface ApiListHandlers {
     handleAddApi: () => void;
     handleAddCategory: () => void;
@@ -44,24 +66,31 @@ const ApiList: React.FC<ApiListProps> = (props) => {
         handleCompleteIteration,
     } = handlers;
 
+    const [searchKeyword, setSearchKeyword] = useState("");
+
+    const filteredTreeData = useMemo(
+        () => filterApiTreeData(treeData, searchKeyword),
+        [treeData, searchKeyword],
+    );
+
     const firstOptionKey = useMemo(
         () =>
-            treeData.filter((item) => item.children?.length > 0)?.[0]
+            filteredTreeData.filter((item) => item.children?.length > 0)?.[0]
                 ?.children?.[0]?.key || "",
-        [treeData]
+        [filteredTreeData],
     );
 
     const categoryKeys = useMemo(() => {
-        return (treeData || [])
+        return (filteredTreeData || [])
             .map((item) => String(item?.key ?? ""))
             .filter((key) => key.startsWith("category-"));
-    }, [treeData]);
+    }, [filteredTreeData]);
 
     const firstOptionCategoryKey = useMemo(() => {
         if (!firstOptionKey) {
             return "";
         }
-        for (const group of treeData || []) {
+        for (const group of filteredTreeData || []) {
             const children = (group as any)?.children || [];
             if (
                 Array.isArray(children) &&
@@ -71,7 +100,7 @@ const ApiList: React.FC<ApiListProps> = (props) => {
             }
         }
         return "";
-    }, [treeData, firstOptionKey]);
+    }, [filteredTreeData, firstOptionKey]);
 
     // 用于控制树节点选中状态
     const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
@@ -92,12 +121,15 @@ const ApiList: React.FC<ApiListProps> = (props) => {
     }, [firstOptionKey]);
 
     useEffect(() => {
-        if (!firstOptionCategoryKey) {
-            return;
+        if (searchKeyword.trim()) {
+            const keys = filteredTreeData
+                .filter((group) => group.children?.length > 0)
+                .map((group) => String(group.key));
+            setExpandedKeys(keys);
+        } else if (firstOptionCategoryKey) {
+            setExpandedKeys([firstOptionCategoryKey]);
         }
-        // 默认展开包含当前选中 API 的分类，避免选中节点不可见
-        setExpandedKeys([firstOptionCategoryKey]);
-    }, [firstOptionCategoryKey]);
+    }, [searchKeyword, filteredTreeData, firstOptionCategoryKey]);
 
     const handleToggleAllCategories = () => {
         setExpandedKeys(anyCategoryExpanded ? [] : categoryKeys);
@@ -188,7 +220,12 @@ const ApiList: React.FC<ApiListProps> = (props) => {
     return (
         <div style={{ padding: 12 }}>
             <div className={styles.search}>
-                <Search allowClear placeholder="搜索 API" />
+                <Search
+                    allowClear
+                    placeholder="搜索 API"
+                    value={searchKeyword}
+                    onChange={setSearchKeyword}
+                />
                 <Button
                     type="outline"
                     shape="square"
@@ -245,11 +282,11 @@ const ApiList: React.FC<ApiListProps> = (props) => {
             </div>
 
             {/* autoExpandParent只有在Tree初次挂载时生效，所以要在treeData计算完成后再渲染 */}
-            {treeData.length > 0 && (
+            {filteredTreeData.length > 0 ? (
                 <Tree
                     className={styles.tree}
                     selectedKeys={selectedKeys}
-                    treeData={treeData}
+                    treeData={filteredTreeData}
                     autoExpandParent
                     expandedKeys={expandedKeys}
                     blockNode
@@ -307,6 +344,12 @@ const ApiList: React.FC<ApiListProps> = (props) => {
                         );
                     }}
                 />
+            ) : (
+                searchKeyword.trim() && (
+                    <div style={{ color: "#86909c", textAlign: "center", padding: 16 }}>
+                        无匹配 API
+                    </div>
+                )
             )}
         </div>
     );

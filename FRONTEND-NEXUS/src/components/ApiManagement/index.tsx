@@ -13,7 +13,8 @@ import { inIterationWarning } from "@/utils";
 import { ImportOpenapiToIteration } from "@/services/service";
 
 const ApiManagement: React.FC = () => {
-    const [searchParams] = useSearchParams();    const uuid = searchParams.get("uuid") || "";
+    const [searchParams] = useSearchParams();
+    const uuid = searchParams.get("uuid") || "";
     const {
         loading,
         versions,

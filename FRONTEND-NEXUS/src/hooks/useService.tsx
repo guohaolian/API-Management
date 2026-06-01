@@ -394,6 +394,7 @@ export const useThisService = (service_uuid: string) => {
         apiCategories.forEach((cat) => {
             categoryMap.set(cat.id, {
                 key: `category-${cat.id}`,
+                searchText: cat.name.toLowerCase(),
                 title: (
                     <Popover content={cat.description}>
                         <Text>{cat.name}</Text>
@@ -406,6 +407,7 @@ export const useThisService = (service_uuid: string) => {
         });
         const uncategorizedGroup = {
             key: "category-null",
+            searchText: "未分类",
             title: <Text>未分类</Text>,
             children: [] as any[],
             selectable: false,
@@ -415,6 +417,7 @@ export const useThisService = (service_uuid: string) => {
         apis.sort((a, b) => a.method.localeCompare(b.method)).forEach((api) => {
             const node = {
                 key: api.id.toString(),
+                searchText: `${api.method} ${api.name} ${api.path}`.toLowerCase(),
                 title: (
                     <Space style={{ fontWeight: 500 }}>
                         {genApiMethodTag(api.method, "small")}
@@ -729,6 +732,7 @@ export const useServiceIteration = (
         apiCategories.forEach((cat) => {
             categoryMap.set(cat.id, {
                 key: `category-${cat.id}`,
+                searchText: cat.name.toLowerCase(),
                 title: (
                     <Popover content={cat.description}>
                         <Text>{cat.name}</Text>
@@ -741,6 +745,7 @@ export const useServiceIteration = (
         });
         const uncategorizedGroup = {
             key: "category-null",
+            searchText: "未分类",
             title: <Text>未分类</Text>,
             children: [] as any[],
             selectable: false,
@@ -752,6 +757,7 @@ export const useServiceIteration = (
             .forEach((apiDraft) => {
                 const node = {
                     key: apiDraft.id.toString(),
+                    searchText: `${apiDraft.method} ${apiDraft.name} ${apiDraft.path}`.toLowerCase(),
                     title: (
                         <Space style={{ fontWeight: 500 }}>
                             {genApiMethodTag(apiDraft.method, "small")}
