@@ -3,13 +3,13 @@ import { useTranslation } from "react-i18next";
 import { Form, Input } from "@cloud-materials/common";
 
 const AddCategoryForm: React.FC = () => {
-    const { i18n } = useTranslation();
+    const { t, i18n } = useTranslation();
     const currentLanguage = i18n.resolvedLanguage;
 
     return (
         <>
             <Form.Item
-                label="分类名"
+                label={t("category.name")}
                 labelCol={currentLanguage === "en-US" ? { span: 7 } : undefined}
                 wrapperCol={
                     currentLanguage === "en-US" ? { span: 17 } : undefined
@@ -18,14 +18,14 @@ const AddCategoryForm: React.FC = () => {
                 rules={[
                     {
                         required: true,
-                        message: "请输入分类名",
+                        message: t("category.nameRequired"),
                     },
                 ]}
             >
-                <Input placeholder="请输入分类名" allowClear />
+                <Input placeholder={t("category.namePlaceholder")} allowClear />
             </Form.Item>
             <Form.Item
-                label="分类描述"
+                label={t("common.description")}
                 labelCol={currentLanguage === "en-US" ? { span: 7 } : undefined}
                 wrapperCol={
                     currentLanguage === "en-US" ? { span: 17 } : undefined
@@ -34,11 +34,14 @@ const AddCategoryForm: React.FC = () => {
                 rules={[
                     {
                         required: true,
-                        message: "请输入分类描述",
+                        message: t("category.descriptionRequired"),
                     },
                 ]}
             >
-                <Input.TextArea placeholder="请输入分类描述" allowClear />
+                <Input.TextArea
+                    placeholder={t("category.descriptionPlaceholder")}
+                    allowClear
+                />
             </Form.Item>
         </>
     );

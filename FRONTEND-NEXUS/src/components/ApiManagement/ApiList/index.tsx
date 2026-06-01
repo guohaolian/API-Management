@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
     Tree,
     Input,
@@ -9,7 +10,7 @@ import {
 } from "@cloud-materials/common";
 
 import styles from "../index.module.less";
-import { handleConfirm, inIterationWarning } from "@/utils";
+import { confirmAction, inIterationWarning } from "@/utils";
 import { CloseIconCAM, OpenIconCAM } from "@/assets/icons";
 
 const { Search } = Input;
@@ -54,6 +55,7 @@ interface ApiListProps {
 }
 
 const ApiList: React.FC<ApiListProps> = (props) => {
+    const { t } = useTranslation();
     const { inIteration, isLatest, treeData, handlers, setSelectedApiId } =
         props;
 
@@ -138,7 +140,7 @@ const ApiList: React.FC<ApiListProps> = (props) => {
     const otherOperations = (
         <Menu style={{ width: 100 }}>
             <Menu.Item key="1" onClick={handleAddCategory}>
-                添加分类
+                {t("apiManagement.addCategory")}
             </Menu.Item>
         </Menu>
     );
@@ -146,7 +148,7 @@ const ApiList: React.FC<ApiListProps> = (props) => {
     const inIterationOperations = (
         <Menu style={{ width: 100 }}>
             <Menu.Item key="1" onClick={handleAddApi}>
-                创建 API
+                {t("apiManagement.createApi")}
             </Menu.Item>
         </Menu>
     );
@@ -222,7 +224,7 @@ const ApiList: React.FC<ApiListProps> = (props) => {
             <div className={styles.search}>
                 <Search
                     allowClear
-                    placeholder="搜索 API"
+                    placeholder={t("apiManagement.searchApi")}
                     value={searchKeyword}
                     onChange={setSearchKeyword}
                 />
@@ -230,7 +232,11 @@ const ApiList: React.FC<ApiListProps> = (props) => {
                     type="outline"
                     shape="square"
                     size="mini"
-                    title={anyCategoryExpanded ? "一键收起" : "一键展开"}
+                    title={
+                        anyCategoryExpanded
+                            ? t("apiManagement.collapseAll")
+                            : t("apiManagement.expandAll")
+                    }
                     onClick={handleToggleAllCategories}
                     style={{
                         width: 28,
@@ -258,7 +264,7 @@ const ApiList: React.FC<ApiListProps> = (props) => {
                         trigger="click"
                         onClick={handleCompleteIteration}
                     >
-                        完成迭代
+                        {t("iteration.complete")}
                     </Dropdown.Button>
                 ) : (
                     isLatest && (
@@ -268,14 +274,14 @@ const ApiList: React.FC<ApiListProps> = (props) => {
                             position="bl"
                             trigger="click"
                             onClick={() =>
-                                handleConfirm(
+                                confirmAction(
                                     handleStartIteration,
-                                    "开始迭代",
-                                    "确认开始新的迭代？"
+                                    "action.startIteration",
+                                    "confirm.startIteration",
                                 )
                             }
                         >
-                            发起迭代
+                            {t("iteration.start")}
                         </Dropdown.Button>
                     )
                 )}
@@ -311,7 +317,7 @@ const ApiList: React.FC<ApiListProps> = (props) => {
                         return (
                             <Button
                                 onClick={() =>
-                                    handleConfirm(
+                                    confirmAction(
                                         () =>
                                             handleDeleteCategory(
                                                 Number(
@@ -321,10 +327,11 @@ const ApiList: React.FC<ApiListProps> = (props) => {
                                                     ) ?? -1
                                                 )
                                             ),
-                                        "删除",
+                                        "action.delete",
                                         inIteration
-                                            ? "确认删除该分类及其下所有 API？"
-                                            : "确认删除当前分类？"
+                                            ? "confirm.deleteCategoryWithApis"
+                                            : "confirm.deleteCategory",
+                                        { danger: true },
                                     )
                                 }
                                 type="outline"
@@ -347,7 +354,7 @@ const ApiList: React.FC<ApiListProps> = (props) => {
             ) : (
                 searchKeyword.trim() && (
                     <div style={{ color: "#86909c", textAlign: "center", padding: 16 }}>
-                        无匹配 API
+                        {t("apiManagement.noMatchingApi")}
                     </div>
                 )
             )}

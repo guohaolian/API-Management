@@ -3,7 +3,7 @@ import type {
     ServiceItem,
     ServiceRange,
 } from "@/services/service/types";
-import { formatDateOrDateTime, handleConfirm, userAvatar } from "@/utils";
+import { formatDateOrDateTime, confirmAction, userAvatar } from "@/utils";
 import {
     Table,
     Typography,
@@ -144,7 +144,7 @@ const ServiceList: React.FC<{
         );
     }
     columns.push({
-        title: "操作",
+        title: t("common.action"),
         key: "actions",
         width: 100,
         fixed: "right" as const,
@@ -158,7 +158,7 @@ const ServiceList: React.FC<{
                         size="small"
                         onClick={() => handleViewService(item.service_uuid)}
                     >
-                        查看
+                        {t("common.view")}
                     </Button>
                 )}
                 {!item.is_deleted ? (
@@ -167,14 +167,15 @@ const ServiceList: React.FC<{
                         status="danger"
                         size="small"
                         onClick={() =>
-                            handleConfirm(
+                            confirmAction(
                                 () => handleDeleteService(item.id),
-                                "删除",
-                                "确认删除当前服务？"
+                                "action.delete",
+                                "confirm.deleteService",
+                                { danger: true },
                             )
                         }
                     >
-                        删除
+                        {t("common.delete")}
                     </Button>
                 ) : (
                     <Button
@@ -182,14 +183,14 @@ const ServiceList: React.FC<{
                         status="success"
                         size="small"
                         onClick={() =>
-                            handleConfirm(
+                            confirmAction(
                                 () => handleRestoreService(item.id),
-                                "恢复",
-                                "确认恢复当前服务？"
+                                "action.restore",
+                                "confirm.restoreService",
                             )
                         }
                     >
-                        恢复
+                        {t("common.restore")}
                     </Button>
                 )}
             </Space>

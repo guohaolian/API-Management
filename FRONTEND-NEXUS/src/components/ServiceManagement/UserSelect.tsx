@@ -75,7 +75,7 @@ const UserSelect: React.FC<{
                 if (!Number.isNaN(id)) {
                     onSelectId(id);
                 } else {
-                    Message.warning("选择的用户ID异常");
+                    Message.warning(t("toast.invalidUserId"));
                 }
             }}
         />

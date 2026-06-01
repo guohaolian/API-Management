@@ -9,7 +9,7 @@ interface AddApiFormProps {
 }
 
 const AddApiForm: React.FC<AddApiFormProps> = ({ apiCategories = [] }) => {
-    const { i18n } = useTranslation();
+    const { t, i18n } = useTranslation();
     const currentLanguage = i18n.resolvedLanguage;
 
     const formItemLayout = {
@@ -17,37 +17,40 @@ const AddApiForm: React.FC<AddApiFormProps> = ({ apiCategories = [] }) => {
         wrapperCol: currentLanguage === "en-US" ? { span: 17 } : undefined,
     };
 
-    const categories = [...apiCategories, { id: -1, name: "未分类" }];
+    const categories = [
+        ...apiCategories,
+        { id: -1, name: t("common.uncategorized") },
+    ];
     const [name, setName] = useState("");
 
     return (
         <>
             <Form.Item
-                label="API 名称"
+                label={t("apiEdit.apiName")}
                 field="name"
                 rules={[
-                    { required: true, message: "请输入 API 名称" },
+                    { required: true, message: t("apiEdit.apiNameRequired") },
                     {
                         match: /^[^\u4e00-\u9fff]*$/,
-                        message: "API 名称不能包含中文",
+                        message: t("apiEdit.apiNameNoChinese"),
                     },
                 ]}
                 {...formItemLayout}
             >
                 <Input
-                    placeholder="请输入 API 名称"
+                    placeholder={t("apiEdit.apiNamePlaceholder")}
                     allowClear
                     onChange={setName}
                 />
             </Form.Item>
             <Form.Item
-                label="请求方法"
+                label={t("api.method")}
                 field="method"
                 initialValue="GET"
-                rules={[{ required: true, message: "请选择请求方法" }]}
+                rules={[{ required: true, message: t("apiEdit.methodRequired") }]}
                 {...formItemLayout}
             >
-                <Select placeholder="请选择请求方法">
+                <Select placeholder={t("apiEdit.methodPlaceholder")}>
                     {HTTP_METHODS.map((m) => (
                         <Select.Option key={m} value={m}>
                             {m}
@@ -56,14 +59,17 @@ const AddApiForm: React.FC<AddApiFormProps> = ({ apiCategories = [] }) => {
                 </Select>
             </Form.Item>
             <Form.Item
-                label="API 路径"
+                label={t("api.path")}
                 field="path"
                 rules={[
-                    { required: true, message: "请输入 API 路径" },
-                    { match: /^\//, message: "路径必须以 / 开头" },
+                    { required: true, message: t("apiEdit.pathRequired") },
+                    {
+                        match: /^\//,
+                        message: t("apiEdit.pathMustStartWithSlash"),
+                    },
                     {
                         match: /^[^\u4e00-\u9fff]*$/,
-                        message: "API 路径不能包含中文",
+                        message: t("apiEdit.apiPathNoChinese"),
                     },
                 ]}
                 {...formItemLayout}
@@ -71,13 +77,13 @@ const AddApiForm: React.FC<AddApiFormProps> = ({ apiCategories = [] }) => {
                 <Input placeholder={`/api/${name}`} allowClear />
             </Form.Item>
             <Form.Item
-                label="接口等级"
+                label={t("apiDetail.apiLevel")}
                 field="level"
                 initialValue="P2"
-                rules={[{ required: true, message: "请选择接口等级" }]}
+                rules={[{ required: true, message: t("apiEdit.levelRequired") }]}
                 {...formItemLayout}
             >
-                <Select placeholder="请选择接口等级">
+                <Select placeholder={t("apiEdit.levelPlaceholder")}>
                     {["P0", "P1", "P2", "P3", "P4"].map((l) => (
                         <Select.Option key={l} value={l}>
                             {l}
@@ -86,13 +92,15 @@ const AddApiForm: React.FC<AddApiFormProps> = ({ apiCategories = [] }) => {
                 </Select>
             </Form.Item>
             <Form.Item
-                label="所属分类"
+                label={t("apiEdit.category")}
                 field="category_id"
                 initialValue={-1}
-                rules={[{ required: true, message: "请选择所属分类" }]}
+                rules={[
+                    { required: true, message: t("apiEdit.categoryRequired") },
+                ]}
                 {...formItemLayout}
             >
-                <Select placeholder="请选择分类">
+                <Select placeholder={t("apiEdit.categoryPlaceholder")}>
                     {categories.map((c) => (
                         <Select.Option key={c.id} value={c.id}>
                             {c.name}
@@ -100,8 +108,15 @@ const AddApiForm: React.FC<AddApiFormProps> = ({ apiCategories = [] }) => {
                     ))}
                 </Select>
             </Form.Item>
-            <Form.Item label="接口描述" field="description" {...formItemLayout}>
-                <Input.TextArea placeholder="请输入接口描述" allowClear />
+            <Form.Item
+                label={t("apiDetail.apiDescription")}
+                field="description"
+                {...formItemLayout}
+            >
+                <Input.TextArea
+                    placeholder={t("apiEdit.descriptionPlaceholder")}
+                    allowClear
+                />
             </Form.Item>
         </>
     );

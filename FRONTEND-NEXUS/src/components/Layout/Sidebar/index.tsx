@@ -40,7 +40,7 @@ const Sidebar: React.FC = () => {
     const handleMenuClick = (key: string) => {
         // 不支持直接点击service
         if (key === "/service") {
-            Message.warning("请通过首页服务列表进入服务详情");
+            Message.warning(t("toast.enterServiceFromHome"));
             return;
         }
         navigate(key);

@@ -1,4 +1,5 @@
 import React, { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import {
     Space,
     Input,
@@ -34,6 +35,7 @@ const ParamTable: React.FC<ParamTableProps> = ({
     readOnly = false,
     setRejectSubmit,
 }) => {
+    const { t } = useTranslation();
     // 校验必填数据是否为空或包含空格
     const isLegalValue = (value: any) => {
         if (value === undefined || value === null || value === "") {
@@ -95,9 +97,10 @@ const ParamTable: React.FC<ParamTableProps> = ({
         [value]
     );
 
-    const columns = [
+    const columns = useMemo(
+        () => [
         {
-            title: "参数名称",
+            title: t("apiDetail.paramName"),
             dataIndex: "name",
             width: 220,
             fixed: "left" as const,
@@ -109,7 +112,7 @@ const ParamTable: React.FC<ParamTableProps> = ({
                 return (
                     <Space size={4}>
                         <Input
-                            placeholder="参数名称"
+                            placeholder={t("apiDetail.paramName")}
                             value={val}
                             onChange={(v) =>
                                 handleFieldChange(record.id, "name", v)
@@ -146,7 +149,7 @@ const ParamTable: React.FC<ParamTableProps> = ({
                                 <Button type="text" size="mini">
                                     <Space size={4}>
                                         <IconCommon />
-                                        子参数
+                                        {t("apiDetail.childParams")}
                                     </Space>
                                 </Button>
                             </Popover>
@@ -156,13 +159,13 @@ const ParamTable: React.FC<ParamTableProps> = ({
             },
         },
         {
-            title: "参数类型",
+            title: t("apiDetail.paramType"),
             dataIndex: "type",
             width: hasArrayParam ? 260 : 150,
             render: (val: string, record: any) => (
                 <Space size={4}>
                     <Select
-                        placeholder="类型"
+                        placeholder={t("apiDetail.typePlaceholder")}
                         style={{ width: 120 }}
                         value={val}
                         onChange={(v) => {
@@ -171,15 +174,15 @@ const ParamTable: React.FC<ParamTableProps> = ({
                         disabled={readOnly}
                         status={val ? undefined : "error"}
                     >
-                        {PARAM_TYPES.map((t) => (
-                            <Option key={t} value={t}>
-                                {t}
+                        {PARAM_TYPES.map((paramType) => (
+                            <Option key={paramType} value={paramType}>
+                                {paramType}
                             </Option>
                         ))}
                     </Select>
                     {val === "array" && (
                         <Select
-                            placeholder="子类型"
+                            placeholder={t("apiDetail.subTypePlaceholder")}
                             style={{ width: 120 }}
                             value={record.array_child_type}
                             onChange={(v) =>
@@ -191,9 +194,9 @@ const ParamTable: React.FC<ParamTableProps> = ({
                             }
                             disabled={readOnly}
                         >
-                            {PARAM_TYPES.map((t) => (
-                                <Option key={t} value={t}>
-                                    {t}
+                            {PARAM_TYPES.map((paramType) => (
+                                <Option key={paramType} value={paramType}>
+                                    {paramType}
                                 </Option>
                             ))}
                         </Select>
@@ -202,14 +205,14 @@ const ParamTable: React.FC<ParamTableProps> = ({
             ),
         },
         {
-            title: "是否必填",
+            title: t("apiDetail.required"),
             dataIndex: "required",
             width: 100,
             render: (val: boolean, record: any) => (
                 <Switch
                     checked={val}
-                    checkedText="必填"
-                    uncheckedText="选填"
+                    checkedText={t("apiDetail.requiredYes")}
+                    uncheckedText={t("apiDetail.requiredNo")}
                     onChange={(v) =>
                         handleFieldChange(record.id, "required", v)
                     }
@@ -218,11 +221,11 @@ const ParamTable: React.FC<ParamTableProps> = ({
             ),
         },
         {
-            title: "描述",
+            title: t("apiDetail.description"),
             dataIndex: "description",
             render: (val: string, record: any) => (
                 <Input
-                    placeholder="描述"
+                    placeholder={t("apiDetail.description")}
                     value={val}
                     onChange={(v) =>
                         handleFieldChange(record.id, "description", v)
@@ -234,11 +237,11 @@ const ParamTable: React.FC<ParamTableProps> = ({
         ...(type === "request"
             ? [
                   {
-                      title: "默认值",
+                      title: t("apiDetail.defaultValue"),
                       dataIndex: "default_value",
                       render: (val: string, record: any) => (
                           <Input
-                              placeholder="默认值"
+                              placeholder={t("apiDetail.defaultValue")}
                               value={val}
                               onChange={(v) =>
                                   handleFieldChange(
@@ -254,11 +257,11 @@ const ParamTable: React.FC<ParamTableProps> = ({
               ]
             : []),
         {
-            title: "示例值",
+            title: t("apiDetail.example"),
             dataIndex: "example",
             render: (val: string, record: any) => (
                 <Input
-                    placeholder="示例值"
+                    placeholder={t("apiDetail.example")}
                     value={val}
                     onChange={(v) => handleFieldChange(record.id, "example", v)}
                     disabled={readOnly}
@@ -266,36 +269,12 @@ const ParamTable: React.FC<ParamTableProps> = ({
             ),
         },
         {
-            title: "操作",
+            title: t("apiDetail.operation"),
             dataIndex: "operation",
             width: 100,
             fixed: "right" as const,
             render: (_: any, record: any) => (
                 <Space>
-                    {/* {record.type === "object" && (
-                        <Button
-                            type="outline"
-                            shape="circle"
-                            size="mini"
-                            icon={<IconPlus />}
-                            onClick={() => {
-                                const currentChildren =
-                                    record.children_params || [];
-                                const newChild = {
-                                    id: generateId(),
-                                    name: "",
-                                    type: "string",
-                                    required: false,
-                                };
-                                handleFieldChange(
-                                    record.id,
-                                    "children_params",
-                                    [...currentChildren, newChild]
-                                );
-                            }}
-                            disabled={readOnly}
-                        />
-                    )} */}
                     <Button
                         type="outline"
                         shape="circle"
@@ -308,7 +287,9 @@ const ParamTable: React.FC<ParamTableProps> = ({
                 </Space>
             ),
         },
-    ];
+    ],
+        [t, type, hasArrayParam, readOnly, value],
+    );
 
     return (
         <Space direction="vertical" className={styles.paramTable}>
@@ -329,7 +310,7 @@ const ParamTable: React.FC<ParamTableProps> = ({
                     onClick={handleAdd}
                     icon={<IconPlus />}
                 >
-                    添加参数
+                    {t("apiDetail.addParam")}
                 </Button>
             )}
         </Space>

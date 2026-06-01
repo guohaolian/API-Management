@@ -11,6 +11,8 @@ import { Layout, Message, Spin } from "@cloud-materials/common";
 import type { UserProfile } from "@/services/user/types";
 import { inIterationWarning } from "@/utils";
 import { ImportOpenapiToIteration } from "@/services/service";
+import { resolveApiMessage } from "@/i18n/apiMessage";
+import { t } from "i18next";
 
 const ApiManagement: React.FC = () => {
     const [searchParams] = useSearchParams();
@@ -73,7 +75,7 @@ const ApiManagement: React.FC = () => {
     const handleImportOpenAPI = useCallback(
         async (openapiObject: Record<string, any>) => {
             if (!inIteration || iterationId <= 0) {
-                Message.warning("请先开始迭代");
+                Message.warning(t("toast.startIterationFirst"));
                 return;
             }
             const res = await ImportOpenapiToIteration({
@@ -83,7 +85,9 @@ const ApiManagement: React.FC = () => {
             if (res.status !== 200) {
                 throw new Error(res.message || "导入 OpenAPI 失败");
             }
-            Message.success(res.message || "导入 OpenAPI 成功");
+            Message.success(
+                resolveApiMessage(res.message, "toast.importOpenapiSuccess"),
+            );
             await fetchIterationDetail();
         },
         [inIteration, iterationId, fetchIterationDetail],

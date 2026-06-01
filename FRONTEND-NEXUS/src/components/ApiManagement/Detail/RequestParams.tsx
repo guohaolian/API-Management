@@ -1,3 +1,5 @@
+import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import {
     IconCommon,
     Popover,
@@ -16,163 +18,155 @@ import type {
 } from "@/services/api/types";
 import styles from "../index.module.less";
 import { getParamTypeTag } from "./utils";
+import {
+    REQUEST_PARAM_TAB_KEYS,
+    getRequestParamTabTitle,
+    type RequestParamTabKey,
+} from "../shared/requestParamTabs";
 
 const { Text } = Typography;
 
-const requestColumns = [
-    {
-        title: "参数名称",
-        dataIndex: "name",
-        width: 160,
-        render: (v: string, record: RequestParam | RequestParamDraft) => {
-            const childrenParams = record.children_params || [];
-            const showSubParams =
-                record.type === "object" ||
-                (record.type === "array" && record.array_child_type === "object");
-
-            if (!showSubParams) {
-                return v;
-            }
-
-            const popoverText =
-                record.type === "array" && record.array_child_type === "object"
-                    ? "点击查看数组元素子参数"
-                    : "点击查看子参数";
-
-            return (
-                <Popover content={popoverText}>
-                    <Popover
-                        trigger="click"
-                        content={
-                            childrenParams.length > 0 ? (
-                                <Table<RequestParam | RequestParamDraft>
-                                    pagination={false}
-                                    columns={requestColumns as any}
-                                    rowKey="name"
-                                    data={childrenParams}
-                                    size="small"
-                                />
-                            ) : (
-                                <div style={{ padding: 12 }}>
-                                    <Text type="secondary">
-                                        暂无子参数（该参数支持子参数，但未定义子字段；可能是 additionalProperties/map 类型）
-                                    </Text>
-                                </div>
-                            )
-                        }
-                        style={{ width: 1000, maxWidth: 1000 }}
-                    >
-                        <Text
-                            type="primary"
-                            className={styles.hasChildParamTitle}
-                        >
-                            {v}
-                        </Text>
-                    </Popover>
-                </Popover>
-            );
-        },
-    },
-    {
-        title: "参数类型",
-        dataIndex: "type",
-        width: 150,
-        render: (v: ParamType, record: RequestParam | RequestParamDraft) =>
-            getParamTypeTag(v, record.array_child_type ?? undefined),
-    },
-    {
-        title: "是否必填",
-        dataIndex: "required",
-        width: 120,
-        render: (v: boolean) => (
-            <Tag color={v ? "red" : "gray"}>{v ? "必填" : "选填"}</Tag>
-        ),
-    },
-    { title: "描述", dataIndex: "description", width: 240, placeholder: "-" },
-    {
-        title: "默认值",
-        dataIndex: "default_value",
-        width: 200,
-        placeholder: "-",
-    },
-    { title: "示例值", dataIndex: "example", width: 200, placeholder: "-" },
-];
-
 const RequestParams = (props: { apiDetail: ApiDetail | ApiDraftDetail }) => {
+    const { t } = useTranslation();
     const { apiDetail } = props;
+
+    const requestColumns = useMemo(() => {
+        const columns = [
+            {
+                title: t("apiDetail.paramName"),
+                dataIndex: "name",
+                width: 160,
+                render: (
+                    v: string,
+                    record: RequestParam | RequestParamDraft,
+                ) => {
+                    const childrenParams = record.children_params || [];
+                    const showSubParams =
+                        record.type === "object" ||
+                        (record.type === "array" &&
+                            record.array_child_type === "object");
+
+                    if (!showSubParams) {
+                        return v;
+                    }
+
+                    const popoverText =
+                        record.type === "array" &&
+                        record.array_child_type === "object"
+                            ? t("apiDetail.clickViewArrayChild")
+                            : t("apiDetail.clickViewChild");
+
+                    return (
+                        <Popover content={popoverText}>
+                            <Popover
+                                trigger="click"
+                                content={
+                                    childrenParams.length > 0 ? (
+                                        <Table<
+                                            RequestParam | RequestParamDraft
+                                        >
+                                            pagination={false}
+                                            columns={columns as any}
+                                            rowKey="name"
+                                            data={childrenParams}
+                                            size="small"
+                                        />
+                                    ) : (
+                                        <div style={{ padding: 12 }}>
+                                            <Text type="secondary">
+                                                {t("apiDetail.noChildParams")}
+                                            </Text>
+                                        </div>
+                                    )
+                                }
+                                style={{ width: 1000, maxWidth: 1000 }}
+                            >
+                                <Text
+                                    type="primary"
+                                    className={styles.hasChildParamTitle}
+                                >
+                                    {v}
+                                </Text>
+                            </Popover>
+                        </Popover>
+                    );
+                },
+            },
+            {
+                title: t("apiDetail.paramType"),
+                dataIndex: "type",
+                width: 150,
+                render: (
+                    v: ParamType,
+                    record: RequestParam | RequestParamDraft,
+                ) => getParamTypeTag(v, record.array_child_type ?? undefined),
+            },
+            {
+                title: t("apiDetail.required"),
+                dataIndex: "required",
+                width: 120,
+                render: (v: boolean) => (
+                    <Tag color={v ? "red" : "gray"}>
+                        {v
+                            ? t("apiDetail.requiredYes")
+                            : t("apiDetail.requiredNo")}
+                    </Tag>
+                ),
+            },
+            {
+                title: t("apiDetail.description"),
+                dataIndex: "description",
+                width: 240,
+                placeholder: "-",
+            },
+            {
+                title: t("apiDetail.defaultValue"),
+                dataIndex: "default_value",
+                width: 200,
+                placeholder: "-",
+            },
+            {
+                title: t("apiDetail.example"),
+                dataIndex: "example",
+                width: 200,
+                placeholder: "-",
+            },
+        ];
+        return columns;
+    }, [t]);
+
     const requestParamsByLocation: Record<
         string,
         RequestParam[] | RequestParamDraft[]
     > = apiDetail.request_params_by_location || {};
     const existLocations = Object.keys(requestParamsByLocation).filter(
-        (location) => requestParamsByLocation[location]?.length > 0
+        (location) => requestParamsByLocation[location]?.length > 0,
     );
 
     return (
         <Space direction="vertical" size={12}>
             <div style={{ fontSize: 13, fontWeight: 500 }}>
-                <IconCommon /> 请求参数
+                <IconCommon /> {t("apiDetail.requestParams")}
             </div>
-            {existLocations.includes("query") && (
-                <Space direction="vertical" size={8}>
-                    <Text>Query 参数</Text>
+            {REQUEST_PARAM_TAB_KEYS.filter((key) =>
+                existLocations.includes(key),
+            ).map((location) => (
+                <Space direction="vertical" size={8} key={location}>
+                    <Text>
+                        {getRequestParamTabTitle(
+                            location as RequestParamTabKey,
+                            t,
+                        )}
+                    </Text>
                     <Table<RequestParam | RequestParamDraft>
                         pagination={false}
                         columns={requestColumns as any}
                         rowKey="name"
-                        data={requestParamsByLocation["query"]}
+                        data={requestParamsByLocation[location]}
                         size="small"
                     />
                 </Space>
-            )}
-            {existLocations.includes("path") && (
-                <Space direction="vertical" size={8}>
-                    <Text>Path 参数</Text>
-                    <Table<RequestParam | RequestParamDraft>
-                        pagination={false}
-                        columns={requestColumns as any}
-                        rowKey="name"
-                        data={requestParamsByLocation["path"]}
-                        size="small"
-                    />
-                </Space>
-            )}
-            {existLocations.includes("body") && (
-                <Space direction="vertical" size={8}>
-                    <Text>Body 参数</Text>
-                    <Table<RequestParam | RequestParamDraft>
-                        pagination={false}
-                        columns={requestColumns as any}
-                        rowKey="name"
-                        data={requestParamsByLocation["body"]}
-                        size="small"
-                    />
-                </Space>
-            )}
-            {existLocations.includes("header") && (
-                <Space direction="vertical" size={8}>
-                    <Text>Header 参数</Text>
-                    <Table<RequestParam | RequestParamDraft>
-                        pagination={false}
-                        columns={requestColumns as any}
-                        rowKey="name"
-                        data={requestParamsByLocation["header"]}
-                        size="small"
-                    />
-                </Space>
-            )}
-            {existLocations.includes("cookie") && (
-                <Space direction="vertical" size={8}>
-                    <Text>Cookie 参数</Text>
-                    <Table<RequestParam | RequestParamDraft>
-                        pagination={false}
-                        columns={requestColumns as any}
-                        rowKey="name"
-                        data={requestParamsByLocation["cookie"]}
-                        size="small"
-                    />
-                </Space>
-            )}
+            ))}
         </Space>
     );
 };

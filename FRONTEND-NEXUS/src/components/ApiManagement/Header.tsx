@@ -20,6 +20,9 @@ import styles from "./index.module.less";
 import type { UserProfile, UserRole } from "@/services/user/types";
 import { copyToClipboard, genUserRoleTag, userAvatar } from "@/utils";
 import { useUser } from "@/hooks/useUser";
+import { useTranslation } from "react-i18next";
+import { toastFromError } from "@/i18n/apiMessage";
+import { t } from "i18next";
 
 const { Text } = Typography;
 
@@ -66,6 +69,7 @@ const Header: React.FC<HeaderProps> = (props) => {
         },
     } = props;
 
+    const { t: translate } = useTranslation();
     const { user, getUserByUsernameOrNicknameOrEmail } = useUser();
 
     const isServiceOwnerOrIsL0 =
@@ -202,7 +206,9 @@ const Header: React.FC<HeaderProps> = (props) => {
                         whiteSpace: "nowrap",
                     }}
                 >
-                    {serviceUuid} 相关人员
+                    {translate("apiManagement.relatedMembers", {
+                        uuid: serviceUuid,
+                    })}
                 </Text>
                 <Text
                     style={{
@@ -211,7 +217,10 @@ const Header: React.FC<HeaderProps> = (props) => {
                         whiteSpace: "nowrap",
                     }}
                 >
-                    {Object.values(serviceMembersByRole).flat().length} 人
+                    {translate("apiManagement.memberCount", {
+                        count: Object.values(serviceMembersByRole).flat()
+                            .length,
+                    })}
                 </Text>
             </div>
             <Space direction="vertical" style={{ width: "100%" }}>
@@ -281,12 +290,11 @@ const Header: React.FC<HeaderProps> = (props) => {
             const text = await file.text();
             const obj = JSON.parse(text);
             if (!obj || typeof obj !== "object") {
-                throw new Error("OpenAPI JSON 解析失败");
+                throw new Error(t("toast.openapiParseFailed"));
             }
             await handleImportOpenAPI(obj as Record<string, any>);
         } catch (err: unknown) {
-            const msg = err instanceof Error ? err.message : "导入 OpenAPI 失败";
-            Message.warning(msg);
+            Message.warning(toastFromError(err, "toast.importOpenapiFailed"));
         } finally {
             setImportLoading(false);
         }
@@ -313,7 +321,9 @@ const Header: React.FC<HeaderProps> = (props) => {
             </Button> */}
             <div style={{ cursor: "default" }}>
                 <Breadcrumb>
-                    <Breadcrumb.Item href="/">服务列表</Breadcrumb.Item>
+                    <Breadcrumb.Item href="/">
+                        {translate("apiManagement.serviceList")}
+                    </Breadcrumb.Item>
                     <Breadcrumb.Item
                         href={
                             inIteration
@@ -329,10 +339,12 @@ const Header: React.FC<HeaderProps> = (props) => {
                                 : undefined
                         }
                     >
-                        服务详情
+                        {translate("apiManagement.serviceDetail")}
                     </Breadcrumb.Item>
                     {inIteration && (
-                        <Breadcrumb.Item>Service 迭代</Breadcrumb.Item>
+                        <Breadcrumb.Item>
+                            {translate("apiManagement.serviceIteration")}
+                        </Breadcrumb.Item>
                     )}
                 </Breadcrumb>
             </div>
@@ -345,7 +357,7 @@ const Header: React.FC<HeaderProps> = (props) => {
                     content={serviceMembersByRoleContent}
                     style={{ whiteSpace: "nowrap", maxWidth: "none" }}
                 >
-                    <Tooltip content="点击复制">
+                    <Tooltip content={translate("apiManagement.clickToCopy")}>
                         <Text
                             style={{
                                 fontSize: 16,
@@ -378,7 +390,7 @@ const Header: React.FC<HeaderProps> = (props) => {
                                 color="green"
                                 style={{ marginRight: 8 }}
                             >
-                                最新版本
+                                {translate("apiManagement.latestVersion")}
                             </Tag>
                         ) : (
                             <Tag
@@ -386,7 +398,7 @@ const Header: React.FC<HeaderProps> = (props) => {
                                 color="blue"
                                 style={{ marginRight: 8 }}
                             >
-                                非最新版本
+                                {translate("apiManagement.notLatestVersion")}
                             </Tag>
                         )
                     }
@@ -411,7 +423,9 @@ const Header: React.FC<HeaderProps> = (props) => {
                 </Select>
                 <span className={styles.userInfo}>
                     <Text className={styles.serviceAvatarTip}>
-                        {isLatest ? "服务" : "版本"}负责人
+                        {isLatest
+                            ? translate("apiManagement.serviceOwner")
+                            : translate("apiManagement.versionOwner")}
                     </Text>
                     {userAvatar([personInCharge], 32)}
                 </span>
@@ -420,7 +434,7 @@ const Header: React.FC<HeaderProps> = (props) => {
                         <Space size={10}>
                             <span className={styles.userInfo}>
                                 <Text className={styles.serviceAvatarTip}>
-                                    服务维护者
+                                    {translate("apiManagement.serviceMaintainers")}
                                 </Text>
                                 {userAvatar(maintainersHere, 32, 5)}
                             </span>
@@ -432,7 +446,9 @@ const Header: React.FC<HeaderProps> = (props) => {
                                     onSearch={debounceGetMaintainerOptions}
                                     options={options}
                                     value={maintainersHere.map((m) => m.id)}
-                                    placeholder="Search by username, nickname or email"
+                                    placeholder={translate(
+                                        "apiManagement.searchMaintainerPlaceholder",
+                                    )}
                                     style={{
                                         width: 200,
                                     }}
@@ -511,7 +527,7 @@ const Header: React.FC<HeaderProps> = (props) => {
                             onClick={exportAndDownloadOpenAPI}
                             loading={exportLoading}
                         >
-                            导出 OpenAPI
+                            {translate("apiManagement.exportOpenapi")}
                         </Button>
                     {/* </Badge> */}
                     {inIteration && (
@@ -529,7 +545,7 @@ const Header: React.FC<HeaderProps> = (props) => {
                                 onClick={chooseOpenApiFile}
                                 loading={importLoading}
                             >
-                                导入 OpenAPI
+                                {translate("apiManagement.importOpenapi")}
                             </Button>
                         </>
                     )}

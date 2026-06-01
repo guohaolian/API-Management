@@ -1,6 +1,11 @@
+import { useTranslation } from "react-i18next";
 import { IconCommon, Space, Tabs, Form } from "@cloud-materials/common";
 import ParamTable from "./ParamTable";
-import { tabs } from "./index";
+import {
+    REQUEST_PARAM_TAB_KEYS,
+    getRequestParamTabTitle,
+    type RequestParamTabKey,
+} from "../shared/requestParamTabs";
 
 interface RequestParamsEditProps {
     reqParamsActiveTab: string;
@@ -13,33 +18,39 @@ const RequestParamsEdit = ({
     setReqParamsActiveTab,
     setRejectSubmit,
 }: RequestParamsEditProps) => {
+    const { t } = useTranslation();
+
     return (
         <Space direction="vertical" size={12}>
             <div style={{ fontSize: 13, fontWeight: 500 }}>
-                <IconCommon /> 请求参数
+                <IconCommon /> {t("apiDetail.requestParams")}
             </div>
             <Tabs
                 activeTab={reqParamsActiveTab}
                 onChange={setReqParamsActiveTab}
             >
-                {tabs.map((tab) => (
-                    <Tabs.TabPane key={tab.key} title={tab.title} />
+                {REQUEST_PARAM_TAB_KEYS.map((key) => (
+                    <Tabs.TabPane
+                        key={key}
+                        title={getRequestParamTabTitle(
+                            key as RequestParamTabKey,
+                            t,
+                        )}
+                    />
                 ))}
             </Tabs>
 
             <div>
-                {tabs.map((tab) => (
+                {REQUEST_PARAM_TAB_KEYS.map((key) => (
                     <div
-                        key={tab.key}
+                        key={key}
                         style={{
                             display:
-                                reqParamsActiveTab === tab.key
-                                    ? "block"
-                                    : "none",
+                                reqParamsActiveTab === key ? "block" : "none",
                         }}
                     >
                         <Form.Item
-                            field={`request_params_by_location.${tab.key}`}
+                            field={`request_params_by_location.${key}`}
                             triggerPropName="value"
                             noStyle
                         >

@@ -76,20 +76,17 @@ export const formatDateOrDateTime = (
 
 export const handleConfirm = (
     onOk: () => void | Promise<void>,
-    action?: string,
-    confirmText?: string,
+    title: string,
+    content: string,
+    options?: { danger?: boolean },
 ) => {
     const modal = Modal.confirm({
-        title: `确认${action || "操作"}`,
-        content: confirmText || `是否确认${action || "执行此操作"}？`,
+        title,
+        content,
         cancelText: t("common.cancel"),
         okText: t("common.confirm"),
         okButtonProps: {
-            status:
-                action?.includes("删除") ||
-                action?.toLowerCase().includes("delete")
-                    ? "danger"
-                    : "default",
+            status: options?.danger ? "danger" : "default",
         },
         onOk: async () => {
             try {
@@ -100,6 +97,20 @@ export const handleConfirm = (
         },
         closable: true,
     });
+};
+
+export const confirmAction = (
+    onOk: () => void | Promise<void>,
+    actionKey: string,
+    contentKey: string,
+    options?: { danger?: boolean },
+) => {
+    handleConfirm(
+        onOk,
+        t("confirm.title", { action: t(actionKey) }),
+        t(contentKey),
+        options,
+    );
 };
 
 export const userAvatar = (
@@ -243,9 +254,9 @@ export const inIterationWarning = (
     if (!inIteration) return action();
     if (type === "warning") {
         const modal = Modal.warning({
-            title: "注意",
-            content: "当前在迭代中，请确保已保存当前改动",
-            okText: "继续",
+            title: t("common.notice"),
+            content: t("iteration.inProgressSaveWarning"),
+            okText: t("common.continue"),
             onOk: async () => {
                 try {
                     action();
@@ -257,9 +268,9 @@ export const inIterationWarning = (
         return;
     } else if (type === "reject") {
         Modal.warning({
-            title: "注意",
-            content: "当前在迭代中，请先退出当前迭代",
-            okText: "返回",
+            title: t("common.notice"),
+            content: t("iteration.inProgressExitWarning"),
+            okText: t("common.back"),
         });
         return;
     }
@@ -279,9 +290,9 @@ export const copyToClipboard = async (text: string) => {
             document.execCommand("copy");
             document.body.removeChild(textarea);
         }
-        Message.success("复制成功");
+        Message.success(t("common.copySuccess"));
     } catch (error) {
         console.error("Copy failed", error);
-        Message.error("复制失败");
+        Message.error(t("common.copyFailure"));
     }
 };

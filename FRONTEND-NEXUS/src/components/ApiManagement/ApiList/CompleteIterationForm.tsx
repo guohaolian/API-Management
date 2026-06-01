@@ -24,7 +24,7 @@ const CompleteIterationForm: React.FC<CompleteIterationFormProps> = ({
     versionConflict,
     conflictServerVersion,
 }) => {
-    const { i18n } = useTranslation();
+    const { t, i18n } = useTranslation();
     const currentLanguage = i18n.resolvedLanguage;
 
     const suggestVersionPlaceholder = useMemo(
@@ -42,7 +42,7 @@ const CompleteIterationForm: React.FC<CompleteIterationFormProps> = ({
 
     const validateVersion = (
         value: string | undefined,
-        callback: (error?: any) => void
+        callback: (error?: any) => void,
     ) => {
         if (!value) {
             callback();
@@ -50,7 +50,7 @@ const CompleteIterationForm: React.FC<CompleteIterationFormProps> = ({
         }
         const versionRegex = /^\d+\.\d+\.\d+$/;
         if (!versionRegex.test(value)) {
-            callback("版本号格式必须为 x.y.z（xyz均为非负整数）");
+            callback(t("iteration.versionFormatInvalid"));
             return;
         }
 
@@ -69,7 +69,7 @@ const CompleteIterationForm: React.FC<CompleteIterationFormProps> = ({
             (major === currMajor && minor < currMinor) ||
             (major === currMajor && minor === currMinor && patch < currPatch)
         ) {
-            callback("新版本号不得小于当前版本号");
+            callback(t("iteration.versionTooLow"));
             return;
         }
         callback();
@@ -77,14 +77,27 @@ const CompleteIterationForm: React.FC<CompleteIterationFormProps> = ({
 
     return (
         <>
-            {versionConflict && conflictServerVersion && updatedVersionSuggestion && (
-                <div style={{ color: "#f53f3f", marginBottom: 16, lineHeight: 1.6 }}>
-                    当前有新的版本号“{conflictServerVersion}”，请使用更新的版本号“{updatedVersionSuggestion}”
-                </div>
-            )}
+            {versionConflict &&
+                conflictServerVersion &&
+                updatedVersionSuggestion && (
+                    <div
+                        style={{
+                            color: "#f53f3f",
+                            marginBottom: 16,
+                            lineHeight: 1.6,
+                        }}
+                    >
+                        {t("iteration.versionConflict", {
+                            current: conflictServerVersion,
+                            suggested: updatedVersionSuggestion,
+                        })}
+                    </div>
+                )}
             <Form.Item
-                label="新版本号"
-                labelCol={currentLanguage === "en-US" ? { span: 7 } : undefined}
+                label={t("iteration.newVersion")}
+                labelCol={
+                    currentLanguage === "en-US" ? { span: 7 } : undefined
+                }
                 wrapperCol={
                     currentLanguage === "en-US" ? { span: 17 } : undefined
                 }
@@ -93,7 +106,7 @@ const CompleteIterationForm: React.FC<CompleteIterationFormProps> = ({
                 rules={[
                     {
                         required: true,
-                        message: "请输入新版本号",
+                        message: t("iteration.newVersionRequired"),
                     },
                     {
                         validator: validateVersion,

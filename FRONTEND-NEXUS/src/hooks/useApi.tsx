@@ -3,6 +3,7 @@ import { Message } from "@cloud-materials/common";
 
 import type { ApiDetail, ApiDraftDetail } from "@/services/api/types";
 import { GetApiById } from "@/services/api";
+import { toastFromError } from "@/i18n/apiMessage";
 
 const useApi = (apiId: number, isLatest: boolean) => {
     const [loading, setLoading] = useState(false);
@@ -25,9 +26,9 @@ const useApi = (apiId: number, isLatest: boolean) => {
             setApiDetail(res.api || ({} as ApiDetail));
         } catch (error: unknown) {
             setApiDetail({} as ApiDetail);
-            const msg =
-                error instanceof Error ? error.message : "获取 API 详情失败";
-            Message.warning(msg);
+            Message.warning(
+                toastFromError(error, "toast.fetchApiDetailFailed"),
+            );
         } finally {
             setLoading(false);
         }

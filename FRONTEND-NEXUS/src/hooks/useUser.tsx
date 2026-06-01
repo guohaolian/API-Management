@@ -4,6 +4,7 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { Message, CModal } from "@cloud-materials/common";
 import { t } from "i18next";
+import { resolveApiMessage, toastFromError } from "@/i18n/apiMessage";
 
 import {
     GetMyInfo,
@@ -96,7 +97,12 @@ export const useUser = create<UserStore>()(
                     try {
                         const res = await GetMyInfo();
                         if (res.status !== 200) {
-                            Message.warning(res.message || "获取用户信息失败");
+                            Message.warning(
+                                resolveApiMessage(
+                                    res.message,
+                                    "toast.fetchUserFailed",
+                                ),
+                            );
                             set({ loading: false, user: null });
                             localStorage.removeItem(TOKEN_KEY);
                             sessionStorage.removeItem(USER_STORE_KEY);
@@ -152,22 +158,22 @@ export const useUser = create<UserStore>()(
                     formData: RegisterRequest & { confirmPassword: string }
                 ) => {
                     if (formData.password !== formData.confirmPassword) {
-                        throw new Error("两次密码输入不一致");
+                        throw new Error(t("toast.passwordMismatch"));
                     }
                     if (!/^[a-zA-Z0-9_]+$/.test(formData.username)) {
-                        throw new Error("用户名只能包含字母、数字和下划线");
+                        throw new Error(t("toast.usernameInvalid"));
                     }
                     if (
                         !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(
                             formData.email
                         )
                     ) {
-                        throw new Error("请输入正确的邮箱格式");
+                        throw new Error(t("toast.emailInvalid"));
                     }
 
                     const roleCode = formData.role as RoleCode;
                     if (!VALID_ROLES.includes(roleCode)) {
-                        throw new Error("请选择正确的角色");
+                        throw new Error(t("toast.roleInvalid"));
                     }
 
                     const registerRequest: RegisterRequest = {
@@ -193,7 +199,7 @@ export const useUser = create<UserStore>()(
                     if (
                         formData.new_password !== formData.confirm_new_password
                     ) {
-                        throw new Error("两次新密码输入不一致");
+                        throw new Error(t("toast.newPasswordMismatch"));
                     }
                     const res = await UserModifyPassword(formData);
                     if (res.status !== 200) {
@@ -217,16 +223,17 @@ export const useUser = create<UserStore>()(
                                     password: values.password,
                                 });
                                 Message.success(
-                                    res.message || t("login.success")
+                                    resolveApiMessage(
+                                        res.message,
+                                        "login.success",
+                                    ),
                                 );
                                 // 显式关闭弹窗，避免依赖隐式行为
                                 modal.close();
                             } catch (err: unknown) {
-                                const msg =
-                                    err instanceof Error
-                                        ? err.message
-                                        : t("login.failure");
-                                Message.error(msg);
+                                Message.error(
+                                    toastFromError(err, "login.failure"),
+                                );
                                 // 抛出错误以阻止弹窗自动关闭（库内有相关处理）
                                 throw err;
                             }
@@ -257,34 +264,24 @@ export const useUser = create<UserStore>()(
                                         username: values.username,
                                         password: values.password,
                                     });
-                                    Message.success(
-                                        t("register.autoLoginSuccess", {
-                                            defaultValue:
-                                                registerRes.message ||
-                                                t("register.success"),
-                                        })
-                                    );
+                                    Message.success(t("register.autoLoginSuccess"));
                                 } catch (err: unknown) {
                                     // 注册已成功：不抛错，避免弹窗无法关闭且再次提交会触发“重复注册”
                                     Message.success(
-                                        registerRes.message ||
-                                            t("register.success")
+                                        resolveApiMessage(
+                                            registerRes.message,
+                                            "register.success",
+                                        ),
                                     );
-                                    Message.warning(
-                                        t("register.autoLoginFailure", {
-                                            defaultValue: t("login.failure"),
-                                        })
-                                    );
+                                    Message.warning(t("register.autoLoginFailure"));
                                 } finally {
                                     // 显式关闭弹窗，避免依赖隐式行为
                                     modal.close();
                                 }
                             } catch (err: unknown) {
-                                const msg =
-                                    err instanceof Error
-                                        ? err.message
-                                        : t("register.failure");
-                                Message.error(msg);
+                                Message.error(
+                                    toastFromError(err, "register.failure"),
+                                );
                                 // 抛出错误以阻止弹窗自动关闭（库内有相关处理）
                                 throw err;
                             }
@@ -308,16 +305,17 @@ export const useUser = create<UserStore>()(
                                         values.confirm_new_password,
                                 });
                                 Message.success(
-                                    res.message || t("modifyPassword.success")
+                                    resolveApiMessage(
+                                        res.message,
+                                        "modifyPassword.success",
+                                    ),
                                 );
                                 // 显式关闭弹窗，避免依赖隐式行为
                                 modal.close();
                             } catch (err: unknown) {
-                                const msg =
-                                    err instanceof Error
-                                        ? err.message
-                                        : t("modifyPassword.failure");
-                                Message.error(msg);
+                                Message.error(
+                                    toastFromError(err, "modifyPassword.failure"),
+                                );
                                 // 抛出错误以阻止弹窗自动关闭（库内有相关处理）
                                 throw err;
                             }

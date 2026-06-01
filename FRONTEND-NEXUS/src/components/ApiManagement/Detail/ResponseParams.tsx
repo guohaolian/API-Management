@@ -1,3 +1,5 @@
+import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import {
     IconCommon,
     Popover,
@@ -20,100 +22,130 @@ import { getParamTypeTag } from "./utils";
 
 const { Text } = Typography;
 
-const responseColumns = [
-    {
-        title: "参数名称",
-        dataIndex: "name",
-        width: 160,
-        render: (v: string, record: ResponseParam | ResponseParamDraft) => {
-            const childrenParams = record.children_params || [];
-            const showSubParams =
-                record.type === "object" ||
-                (record.type === "array" && record.array_child_type === "object");
-
-            if (!showSubParams) {
-                return v;
-            }
-
-            const popoverText =
-                record.type === "array" && record.array_child_type === "object"
-                    ? "点击查看数组元素子参数"
-                    : "点击查看子参数";
-
-            return (
-                <Popover content={popoverText}>
-                    <Popover
-                        trigger="click"
-                        content={
-                            childrenParams.length > 0 ? (
-                                <Table<ResponseParam | ResponseParamDraft>
-                                    pagination={false}
-                                    columns={responseColumns as any}
-                                    rowKey="name"
-                                    data={childrenParams}
-                                    size="small"
-                                />
-                            ) : (
-                                <div style={{ padding: 12 }}>
-                                    <Text type="secondary">
-                                        暂无子参数（该参数支持子参数，但未定义子字段；可能是 additionalProperties/map 类型）
-                                    </Text>
-                                </div>
-                            )
-                        }
-                        style={{ width: 1000, maxWidth: 1000 }}
-                    >
-                        <Text
-                            type="primary"
-                            className={styles.hasChildParamTitle}
-                        >
-                            {v}
-                        </Text>
-                    </Popover>
-                </Popover>
-            );
-        },
-    },
-    {
-        title: "参数类型",
-        dataIndex: "type",
-        width: 150,
-        render: (v: ParamType, record: ResponseParam | ResponseParamDraft) =>
-            getParamTypeTag(v, record.array_child_type ?? undefined),
-    },
-    {
-        title: "是否必填",
-        dataIndex: "required",
-        width: 120,
-        render: (v: boolean) => (
-            <Tag color={v ? "red" : "gray"}>{v ? "必填" : "选填"}</Tag>
-        ),
-    },
-    { title: "描述", dataIndex: "description", width: 240, placeholder: "-" },
-    { title: "示例值", dataIndex: "example", placeholder: "-" },
-];
-
 const ResponseParams = (props: { apiDetail: ApiDetail | ApiDraftDetail }) => {
+    const { t } = useTranslation();
     const { apiDetail } = props;
+
+    const responseColumns = useMemo(() => {
+        const columns = [
+            {
+                title: t("apiDetail.paramName"),
+                dataIndex: "name",
+                width: 160,
+                render: (
+                    v: string,
+                    record: ResponseParam | ResponseParamDraft,
+                ) => {
+                    const childrenParams = record.children_params || [];
+                    const showSubParams =
+                        record.type === "object" ||
+                        (record.type === "array" &&
+                            record.array_child_type === "object");
+
+                    if (!showSubParams) {
+                        return v;
+                    }
+
+                    const popoverText =
+                        record.type === "array" &&
+                        record.array_child_type === "object"
+                            ? t("apiDetail.clickViewArrayChild")
+                            : t("apiDetail.clickViewChild");
+
+                    return (
+                        <Popover content={popoverText}>
+                            <Popover
+                                trigger="click"
+                                content={
+                                    childrenParams.length > 0 ? (
+                                        <Table<
+                                            ResponseParam | ResponseParamDraft
+                                        >
+                                            pagination={false}
+                                            columns={columns as any}
+                                            rowKey="name"
+                                            data={childrenParams}
+                                            size="small"
+                                        />
+                                    ) : (
+                                        <div style={{ padding: 12 }}>
+                                            <Text type="secondary">
+                                                {t("apiDetail.noChildParams")}
+                                            </Text>
+                                        </div>
+                                    )
+                                }
+                                style={{ width: 1000, maxWidth: 1000 }}
+                            >
+                                <Text
+                                    type="primary"
+                                    className={styles.hasChildParamTitle}
+                                >
+                                    {v}
+                                </Text>
+                            </Popover>
+                        </Popover>
+                    );
+                },
+            },
+            {
+                title: t("apiDetail.paramType"),
+                dataIndex: "type",
+                width: 150,
+                render: (
+                    v: ParamType,
+                    record: ResponseParam | ResponseParamDraft,
+                ) => getParamTypeTag(v, record.array_child_type ?? undefined),
+            },
+            {
+                title: t("apiDetail.required"),
+                dataIndex: "required",
+                width: 120,
+                render: (v: boolean) => (
+                    <Tag color={v ? "red" : "gray"}>
+                        {v
+                            ? t("apiDetail.requiredYes")
+                            : t("apiDetail.requiredNo")}
+                    </Tag>
+                ),
+            },
+            {
+                title: t("apiDetail.description"),
+                dataIndex: "description",
+                width: 240,
+                placeholder: "-",
+            },
+            {
+                title: t("apiDetail.example"),
+                dataIndex: "example",
+                placeholder: "-",
+            },
+        ];
+        return columns;
+    }, [t]);
+
     const responseParamsByStatusCode: Record<
         number,
         ResponseParam[] | ResponseParamDraft[]
     > = apiDetail.response_params_by_status_code || {};
     const existCodes: number[] = Object.keys(responseParamsByStatusCode)
         .filter(
-            (status) => responseParamsByStatusCode[Number(status)]?.length > 0
+            (status) => responseParamsByStatusCode[Number(status)]?.length > 0,
         )
         .map(Number)
-        .sort((a, b) => a - b); // Object.keys()自动将key转换为string，需要手动转换为number，并排序
+        .sort((a, b) => a - b);
 
     return (
         <Space direction="vertical" size={12}>
             <div style={{ fontSize: 13, fontWeight: 500 }}>
-                <IconCommon /> 响应参数
+                <IconCommon /> {t("apiDetail.responseParams")}
             </div>
             {existCodes.map((code) => (
                 <Space direction="vertical" size={8} key={code}>
-                    <Text>状态码：{genStatusCodeTag(code)}</Text>
+                    <Text>
+                        {t("apiDetail.statusCode")}
+                        {genStatusCodeTag(code)}
+                    </Text>
                     <Table<ResponseParam | ResponseParamDraft>
                         pagination={false}
                         columns={responseColumns as any}

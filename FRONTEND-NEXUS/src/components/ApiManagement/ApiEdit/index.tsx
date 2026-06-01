@@ -19,23 +19,19 @@ import type {
     ApiDraftDetail,
     ApiReqParamInput,
     ApiRespParamInput,
-    ParamLocation,
     UpdateApiByApiDraftIdRequest,
     UpdateApiByApiDraftIdResponse,
 } from "@/services/api/types";
 import RequestParamsEdit from "./RequestParamsEdit";
 import ResponseParamsEdit from "./ResponseParamsEdit";
-import { handleConfirm } from "@/utils";
+import { confirmAction } from "@/utils";
 import BlankPage from "@/components/BlankPage";
-
-// 把请求参数tabs相关逻辑提到本层，便于根据apiDetail处理首个activeTab
-export const tabs = [
-    { key: "query", title: "Query 参数" },
-    { key: "path", title: "Path 参数" },
-    { key: "body", title: "Body 参数" },
-    { key: "header", title: "Header 参数" },
-    { key: "cookie", title: "Cookie 参数" },
-];
+import { useTranslation } from "react-i18next";
+import { resolveApiMessage, toastFromError } from "@/i18n/apiMessage";
+import {
+    REQUEST_PARAM_TAB_KEYS,
+    type RequestParamTabKey,
+} from "../shared/requestParamTabs";
 
 interface ApiEditHandlers {
     handleSaveApiDraft: (
@@ -56,6 +52,7 @@ const ApiEdit: React.FC<ApiEditProps> = ({
     apiDetail,
     handlers: { handleSaveApiDraft, handleCopyApi, handleDeleteApi },
 }) => {
+    const { t } = useTranslation();
     const [form] = Form.useForm();
     const [editLoading, setEditLoading] = useState(false);
     const [isDraft, setIsDraft] = useState(false);
@@ -66,12 +63,12 @@ const ApiEdit: React.FC<ApiEditProps> = ({
         if (!apiDetail.request_params_by_location) {
             return "query";
         }
-        for (const tab of tabs) {
+        for (const key of REQUEST_PARAM_TAB_KEYS) {
             if (
-                apiDetail.request_params_by_location[tab.key as ParamLocation]
-                    .length > 0
+                apiDetail.request_params_by_location[key as RequestParamTabKey]
+                    ?.length > 0
             ) {
-                return tab.key;
+                return key;
             }
         }
         return "query";
@@ -96,7 +93,7 @@ const ApiEdit: React.FC<ApiEditProps> = ({
         );
         // 检查是否有请求参数name为空
         if (req_params.some((param) => !param.name)) {
-            Message.warning("存在名称为空的请求参数");
+            Message.warning(t("toast.emptyRequestParamName"));
             setEditLoading(false);
             return;
         }
@@ -112,7 +109,7 @@ const ApiEdit: React.FC<ApiEditProps> = ({
             );
             // path参数不能为选填
             if (allPathParams.some((param) => param.required === false)) {
-                Message.warning("Path 参数不能为选填");
+                Message.warning(t("toast.pathParamOptional"));
                 setEditLoading(false);
                 return;
             }
@@ -125,9 +122,7 @@ const ApiEdit: React.FC<ApiEditProps> = ({
                     apiPath.includes(param)
                 )
             ) {
-                Message.warning(
-                    "Path 参数必须用花括号包含在路径中，如：{param}"
-                );
+                Message.warning(t("toast.pathParamMustBeInPath"));
                 setEditLoading(false);
                 return;
             }
@@ -137,7 +132,7 @@ const ApiEdit: React.FC<ApiEditProps> = ({
         );
         // 检查是否有响应参数name为空
         if (resp_params.some((param) => !param.name)) {
-            Message.warning("存在名称为空的响应参数");
+            Message.warning(t("toast.emptyResponseParamName"));
             setEditLoading(false);
             return;
         }
@@ -156,16 +151,17 @@ const ApiEdit: React.FC<ApiEditProps> = ({
         try {
             const res = await handleSaveApiDraft(data);
             setIsDraft(false);
-            Message.success(res.message || "API 保存成功");
+            Message.success(
+                resolveApiMessage(res.message, "toast.saveApiSuccess"),
+            );
         } catch (error) {
-            const msg = error instanceof Error ? error.message : "API 保存失败";
-            Message.error(msg);
+            Message.error(toastFromError(error, "toast.saveApiFailed"));
         }
         setEditLoading(false);
     };
 
     if (!apiDetail || Object.keys(apiDetail).length === 0) {
-        return <BlankPage message="暂无 API，请点击左侧 ··· 创建 API" />;
+        return <BlankPage message={t("apiManagement.noApiCreateHint")} />;
     }
 
     return (
@@ -173,7 +169,7 @@ const ApiEdit: React.FC<ApiEditProps> = ({
             <Spin size={40} loading={loading}>
                 <div className={sharedStyles.header}>
                     <Typography.Title heading={5}>
-                        Service 迭代
+                        {t("apiManagement.serviceIteration")}
                     </Typography.Title>
                     <Space>
                         <Button
@@ -183,27 +179,30 @@ const ApiEdit: React.FC<ApiEditProps> = ({
                             loading={editLoading}
                             disabled={!isDraft || rejectSubmit}
                         >
-                            {isDraft ? "保存 API" : "当前 API 已保存"}
+                            {isDraft
+                                ? t("apiManagement.saveApi")
+                                : t("apiManagement.apiSaved")}
                         </Button>
                         <Button
                             type="default"
                             status="default"
                             onClick={() => handleCopyApi(apiDetail.id)}
                         >
-                            复制 API
+                            {t("apiManagement.copyApi")}
                         </Button>
                         <Button
                             type="default"
                             status="danger"
                             onClick={() =>
-                                handleConfirm(
+                                confirmAction(
                                     () => handleDeleteApi(apiDetail.id),
-                                    "删除",
-                                    "确认删除当前 API？"
+                                    "action.delete",
+                                    "confirm.deleteApi",
+                                    { danger: true },
                                 )
                             }
                         >
-                            删除 API
+                            {t("apiManagement.deleteApi")}
                         </Button>
                     </Space>
                 </div>

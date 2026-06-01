@@ -8,6 +8,7 @@ import {
     Popover,
 } from "@cloud-materials/common";
 import { t } from "i18next";
+import { resolveApiMessage, toastFromError } from "@/i18n/apiMessage";
 
 import {
     AddOrRemoveServiceMaintainerById,
@@ -211,12 +212,13 @@ export const useService = () => {
                 setLoading(false);
                 throw new Error(res.message || "删除服务失败");
             }
-            Message.success("删除服务成功");
+            Message.success(
+                resolveApiMessage(res.message, "toast.deleteServiceSuccess"),
+            );
             // 刷新服务列表
             await refetchRef.current?.();
         } catch (err) {
-            const msg = err instanceof Error ? err.message : String(err);
-            Message.warning(msg || "删除服务失败");
+            Message.warning(toastFromError(err, "toast.deleteServiceFailed"));
         }
         setLoading(false);
     }, []);
@@ -228,13 +230,14 @@ export const useService = () => {
             setLoading(false);
             throw new Error(res.message || "还原服务失败");
         }
-        Message.success("还原服务成功");
+        Message.success(
+            resolveApiMessage(res.message, "toast.restoreServiceSuccess"),
+        );
         // 刷新服务列表
         try {
             await refetchRef.current?.();
         } catch (err) {
-            const msg = err instanceof Error ? err.message : String(err);
-            Message.warning(msg || "获取服务失败");
+            Message.warning(toastFromError(err, "toast.fetchServicesFailed"));
         }
         setLoading(false);
     }, []);
@@ -256,23 +259,26 @@ export const useService = () => {
                         if (res.status !== 200) {
                             throw new Error(res.message || "服务创建失败");
                         }
-                        Message.success(res.message || "服务创建成功");
+                        Message.success(
+                            resolveApiMessage(
+                                res.message,
+                                "toast.createServiceSuccess",
+                            ),
+                        );
                         // 显式关闭弹窗，避免依赖隐式行为
                         modal.close();
                         // 刷新服务列表
                         try {
                             await refetchRef.current?.();
                         } catch (err) {
-                            const msg =
-                                err instanceof Error
-                                    ? err.message
-                                    : "获取服务失败";
-                            Message.warning(msg || "获取服务失败");
+                            Message.warning(
+                                toastFromError(err, "toast.fetchServicesFailed"),
+                            );
                         }
                     } catch (err: unknown) {
-                        const msg =
-                            err instanceof Error ? err.message : "服务创建失败";
-                        Message.warning(msg);
+                        Message.warning(
+                            toastFromError(err, "toast.createServiceFailed"),
+                        );
                         // 抛出错误以阻止弹窗自动关闭（库内有相关处理）
                         throw err;
                     }
@@ -332,9 +338,7 @@ export const useThisService = (service_uuid: string) => {
             setCurrentVersion(res.versions?.[0]?.version || "");
             setIsLatest(res.versions?.[0]?.is_latest || false);
         } catch (err: unknown) {
-            const msg =
-                err instanceof Error ? err.message : t("service.failure");
-            Message.warning(msg || "获取版本失败");
+            Message.warning(toastFromError(err, "toast.fetchVersionsFailed"));
             navigate("/");
         } finally {
             setLoading(false);
@@ -372,9 +376,9 @@ export const useThisService = (service_uuid: string) => {
                     );
                 }
             } catch (err: unknown) {
-                const msg =
-                    err instanceof Error ? err.message : "获取服务详情失败";
-                Message.warning(msg || "获取服务详情失败");
+                Message.warning(
+                    toastFromError(err, "toast.fetchServiceDetailFailed"),
+                );
             } finally {
                 setLoading(false);
             }
@@ -409,8 +413,8 @@ export const useThisService = (service_uuid: string) => {
         });
         const uncategorizedGroup = {
             key: "category-null",
-            searchText: "未分类",
-            title: <Text>未分类</Text>,
+            searchText: t("common.uncategorized"),
+            title: <Text>{t("common.uncategorized")}</Text>,
             children: [] as any[],
             selectable: false,
             draggable: false,
@@ -459,10 +463,10 @@ export const useThisService = (service_uuid: string) => {
 
     const handleAddCategory = useCallback(() => {
         const modal = CModal.openArcoForm({
-            title: "添加分类",
+            title: t("category.add"),
             content: <AddCategoryForm />,
             cancelText: t("common.cancel"),
-            okText: "确定",
+            okText: t("common.ok"),
             onOk: async (values, form) => {
                 try {
                     await form.validate();
@@ -474,14 +478,16 @@ export const useThisService = (service_uuid: string) => {
                     if (res.status !== 200) {
                         throw new Error(res.message || "分类添加失败");
                     }
-                    Message.success(res.message || "分类添加成功");
+                    Message.success(
+                        resolveApiMessage(res.message, "toast.addCategorySuccess"),
+                    );
                     // 显式关闭弹窗，避免依赖隐式行为
                     modal.close();
                     setApiCategories((prev) => [...prev, res.category || {}]);
                 } catch (err: unknown) {
-                    const msg =
-                        err instanceof Error ? err.message : "分类添加失败";
-                    Message.warning(msg);
+                    Message.warning(
+                        toastFromError(err, "toast.addCategoryFailed"),
+                    );
                     // 抛出错误以阻止弹窗自动关闭（库内有相关处理）
                     throw err;
                 }
@@ -511,9 +517,9 @@ export const useThisService = (service_uuid: string) => {
                     ),
                 );
             } catch (err: unknown) {
-                const msg =
-                    err instanceof Error ? err.message : "API 分类更新失败";
-                Message.warning(msg);
+                Message.warning(
+                    toastFromError(err, "toast.updateApiCategoryFailed"),
+                );
                 throw err;
             }
         },
@@ -533,14 +539,20 @@ export const useThisService = (service_uuid: string) => {
                 if (res.status !== 200) {
                     throw new Error(res.message || "分类删除失败");
                 }
-                Message.success(res.message || "分类删除成功");
+                Message.success(
+                    resolveApiMessage(
+                        res.message,
+                        "toast.deleteCategorySuccess",
+                    ),
+                );
                 setApiCategories((prev) =>
                     prev.filter((cat) => cat.id !== category_id),
                 );
                 return true;
             } catch (err: unknown) {
-                const msg = err instanceof Error ? err.message : "分类删除失败";
-                Message.warning(msg);
+                Message.warning(
+                    toastFromError(err, "toast.deleteCategoryFailed"),
+                );
                 return false;
             }
         },
@@ -559,9 +571,9 @@ export const useThisService = (service_uuid: string) => {
                 }
                 return res.is_current_maintainer;
             } catch (err: unknown) {
-                const msg =
-                    err instanceof Error ? err.message : "服务维护者检查失败";
-                Message.warning(msg);
+                Message.warning(
+                    toastFromError(err, "toast.checkMaintainerFailed"),
+                );
                 return false;
             }
         },
@@ -578,12 +590,14 @@ export const useThisService = (service_uuid: string) => {
                 if (res.status !== 200) {
                     throw new Error(res.message || "服务维护者操作失败");
                 }
-                Message.success(res.message || "服务维护者操作成功");
+                Message.success(
+                    resolveApiMessage(res.message, "toast.maintainerOpSuccess"),
+                );
                 return res.is_current_maintainer;
             } catch (err: unknown) {
-                const msg =
-                    err instanceof Error ? err.message : "服务维护者操作失败";
-                Message.warning(msg);
+                Message.warning(
+                    toastFromError(err, "toast.maintainerOpFailed"),
+                );
                 return false;
             }
         },
@@ -602,9 +616,7 @@ export const useThisService = (service_uuid: string) => {
             }
             return res.openapi_object;
         } catch (err: unknown) {
-            const msg =
-                err instanceof Error ? err.message : "导出 OpenAPI 失败";
-            Message.warning(msg);
+            Message.warning(toastFromError(err, "toast.exportOpenapiFailed"));
             return null;
         }
     }, [service_uuid, currentVersion]);
@@ -617,12 +629,13 @@ export const useThisService = (service_uuid: string) => {
             if (res.status !== 200 && res.status !== 201) {
                 throw new Error(res.message || "迭代开始失败");
             }
-            Message.success(res.message || "迭代开始成功");
+            Message.success(
+                resolveApiMessage(res.message, "toast.startIterationSuccess"),
+            );
             setInIteration(true);
             setIterationId(res.service_iteration_id);
         } catch (err: unknown) {
-            const msg = err instanceof Error ? err.message : "迭代开始失败";
-            Message.warning(msg);
+            Message.warning(toastFromError(err, "toast.startIterationFailed"));
         }
     }, [serviceDetail.id, currentVersion, fetchServiceDetail]);
 
@@ -642,7 +655,7 @@ export const useThisService = (service_uuid: string) => {
             !!suggestedFromLocal && suggestedFromLocal === serverLatestVersion;
 
         const modal = CModal.openArcoForm({
-            title: "完成迭代",
+            title: t("iteration.complete"),
             content: (
                 <CompleteIterationForm
                     currentVersion={
@@ -662,7 +675,7 @@ export const useThisService = (service_uuid: string) => {
                 />
             ),
             cancelText: t("common.cancel"),
-            okText: "确定",
+            okText: t("common.ok"),
             onOk: async (values, form) => {
                 try {
                     await form.validate();
@@ -673,7 +686,12 @@ export const useThisService = (service_uuid: string) => {
                     if (res.status !== 200) {
                         throw new Error(res.message || "迭代提交失败");
                     }
-                    Message.success(res.message || "迭代提交成功");
+                    Message.success(
+                        resolveApiMessage(
+                            res.message,
+                            "toast.commitIterationSuccess",
+                        ),
+                    );
                     // 显式关闭弹窗，避免依赖隐式行为
                     modal.close();
                     // 刷新
@@ -681,9 +699,9 @@ export const useThisService = (service_uuid: string) => {
                         window.location.reload();
                     }, 500);
                 } catch (err: unknown) {
-                    const msg =
-                        err instanceof Error ? err.message : "迭代提交失败";
-                    Message.warning(msg);
+                    Message.warning(
+                        toastFromError(err, "toast.commitIterationFailed"),
+                    );
                     // 抛出错误以阻止弹窗自动关闭（库内有相关处理）
                     throw err;
                 }
@@ -745,9 +763,9 @@ export const useServiceIteration = (
                 setApiDrafts(res.iteration.api_drafts || [] || []);
             }
         } catch (err: unknown) {
-            const msg =
-                err instanceof Error ? err.message : "获取当前迭代详情失败";
-            Message.warning(msg);
+            Message.warning(
+                toastFromError(err, "toast.fetchIterationDetailFailed"),
+            );
         } finally {
             setLoading(false);
         }
@@ -778,8 +796,8 @@ export const useServiceIteration = (
         });
         const uncategorizedGroup = {
             key: "category-null",
-            searchText: "未分类",
-            title: <Text>未分类</Text>,
+            searchText: t("common.uncategorized"),
+            title: <Text>{t("common.uncategorized")}</Text>,
             children: [] as any[],
             selectable: false,
             draggable: false,
@@ -831,10 +849,10 @@ export const useServiceIteration = (
 
     const handleAddApi = useCallback(() => {
         const modal = CModal.openArcoForm({
-            title: "添加API",
+            title: t("apiManagement.addApi"),
             content: <AddApiForm apiCategories={apiCategories} />,
             cancelText: t("common.cancel"),
-            okText: "确定",
+            okText: t("common.ok"),
             onOk: async (values, form) => {
                 try {
                     await form.validate();
@@ -853,7 +871,9 @@ export const useServiceIteration = (
                     if (res.status !== 200) {
                         throw new Error(res.message || "API 添加失败");
                     }
-                    Message.success(res.message || "API 添加成功");
+                    Message.success(
+                        resolveApiMessage(res.message, "toast.addApiSuccess"),
+                    );
                     // 显式关闭弹窗，避免依赖隐式行为
                     modal.close();
                     // 刷新
@@ -865,9 +885,7 @@ export const useServiceIteration = (
                     */
                     await fetchIterationDetail();
                 } catch (err: unknown) {
-                    const msg =
-                        err instanceof Error ? err.message : "API 添加失败";
-                    Message.warning(msg);
+                    Message.warning(toastFromError(err, "toast.addApiFailed"));
                     // 抛出错误以阻止弹窗自动关闭（库内有相关处理）
                     throw err;
                 }
@@ -884,7 +902,9 @@ export const useServiceIteration = (
             if (res.status !== 200) {
                 throw new Error(res.message || "API 复制失败");
             }
-            Message.success(res.message || "API 复制成功");
+            Message.success(
+                resolveApiMessage(res.message, "toast.copyApiSuccess"),
+            );
             // 刷新
             await fetchIterationDetail();
         },
@@ -900,7 +920,9 @@ export const useServiceIteration = (
             if (res.status !== 200) {
                 throw new Error(res.message || "API 删除失败");
             }
-            Message.success(res.message || "API 删除成功");
+            Message.success(
+                resolveApiMessage(res.message, "toast.deleteApiSuccess"),
+            );
             // 刷新
             await fetchIterationDetail();
         },

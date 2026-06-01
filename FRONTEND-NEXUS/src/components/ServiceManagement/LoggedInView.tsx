@@ -15,6 +15,7 @@ import type { ServiceRange } from "@/services/service/types";
 import type { UserProfile } from "@/services/user/types";
 import ServiceList from "./ServiceList";
 import UserSelect from "./UserSelect";
+import { toastFromError } from "@/i18n/apiMessage";
 import { WelcomeLoggedIn } from "./WelcomeView";
 
 const { Title } = Typography;
@@ -50,7 +51,7 @@ const LoggedInView: React.FC<{
     const handleTabChange = (key: ServiceRange) => {
         if (key === "HisServices") {
             const modal = CModal.openArcoForm({
-                title: "查看他人服务",
+                title: t("apiManagement.viewOthersService"),
                 content: (
                     <>
                         <UserSelect
@@ -69,7 +70,7 @@ const LoggedInView: React.FC<{
                     try {
                         const selectedId = hisIdRef.current;
                         if (selectedId <= 0) {
-                            throw new Error("未选择用户");
+                            throw new Error(t("toast.noUserSelected"));
                         }
                         setServiceRange("HisServices");
                         setPagination({
@@ -79,11 +80,7 @@ const LoggedInView: React.FC<{
                         // 显式关闭弹窗，避免依赖隐式行为
                         modal.close();
                     } catch (err: unknown) {
-                        const msg =
-                            err instanceof Error
-                                ? err.message
-                                : t("common.failure");
-                        Message.warning(msg);
+                        Message.warning(toastFromError(err, "common.failure"));
                         // 抛出错误以阻止弹窗自动关闭（库内有相关处理）
                         throw err;
                     }
@@ -131,7 +128,9 @@ const LoggedInView: React.FC<{
                         }));
                     })
                     .catch((err) => {
-                        Message.warning(err.message || "获取服务失败");
+                        Message.warning(
+                            toastFromError(err, "toast.fetchServicesFailed"),
+                        );
                     });
                 break;
             case "MyMaintainedServices":
@@ -143,7 +142,9 @@ const LoggedInView: React.FC<{
                         }));
                     })
                     .catch((err) => {
-                        Message.warning(err.message || "获取服务失败");
+                        Message.warning(
+                            toastFromError(err, "toast.fetchServicesFailed"),
+                        );
                     });
                 break;
             case "MyDeletedServices":
@@ -155,7 +156,9 @@ const LoggedInView: React.FC<{
                         }));
                     })
                     .catch((err) => {
-                        Message.warning(err.message || "获取服务失败");
+                        Message.warning(
+                            toastFromError(err, "toast.fetchServicesFailed"),
+                        );
                     });
                 break;
             case "HisServices":
@@ -167,7 +170,9 @@ const LoggedInView: React.FC<{
                         }));
                     })
                     .catch((err) => {
-                        Message.warning(err.message || "获取服务失败");
+                        Message.warning(
+                            toastFromError(err, "toast.fetchServicesFailed"),
+                        );
                     });
                 break;
             case "AllServices":
@@ -179,7 +184,9 @@ const LoggedInView: React.FC<{
                         }));
                     })
                     .catch((err) => {
-                        Message.warning(err.message || "获取服务失败");
+                        Message.warning(
+                            toastFromError(err, "toast.fetchServicesFailed"),
+                        );
                     });
                 break;
         }
@@ -213,20 +220,26 @@ const LoggedInView: React.FC<{
                 onChange={(key) => handleTabChange(key as ServiceRange)}
                 style={{ marginBottom: 18 }}
             >
-                <Tabs.TabPane key="MyServices" title={"My Services"} />
+                <Tabs.TabPane key="MyServices" title={t("service.myServices")} />
                 <Tabs.TabPane
                     key="MyMaintainedServices"
-                    title="My Maintained Services"
+                    title={t("service.myMaintainedServices")}
                 />
                 <Tabs.TabPane
                     key="MyDeletedServices"
-                    title="My Deleted Services"
+                    title={t("service.myDeletedServices")}
                 />
                 {user.level === 0 && (
-                    <Tabs.TabPane key="HisServices" title="His Services" />
+                    <Tabs.TabPane
+                        key="HisServices"
+                        title={t("service.hisServices")}
+                    />
                 )}
                 {user.level === 0 && (
-                    <Tabs.TabPane key="AllServices" title="All Services" />
+                    <Tabs.TabPane
+                        key="AllServices"
+                        title={t("service.allServices")}
+                    />
                 )}
             </Tabs>
             <ServiceList
