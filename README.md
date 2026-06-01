@@ -158,6 +158,7 @@ npm link
 ```bash
 nexus login
 nexus init
+nexus list     # 列出所有服务
 nexus add <service_name>:<service_uuid>@latest
 nexus update
 ```

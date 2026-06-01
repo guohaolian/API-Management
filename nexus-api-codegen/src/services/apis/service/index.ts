@@ -37,6 +37,17 @@ export const GetMyNewestServices = async (
     );
 };
 
+// 获取当前登录用户的所有维护服务列表
+export const GetMyMaintainedServices = async (
+    page_size?: number,
+    current_page?: number
+) => {
+    return api.get<ServiceListResponse>(
+        `${prefix}/getHisMaintainedServicesByUserId`,
+        { page_size, current_page }
+    );
+};
+
 // 获取所有服务（包含已删除服务）
 export const GetAllServices = async (
     page_size?: number,

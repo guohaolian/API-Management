@@ -27,8 +27,6 @@ import type {
     IsServiceMaintainerRequest,
     IsServiceMaintainerResponse,
     ExportOpenapiByUuidAndVersionResponse,
-    ImportOpenapiToNewIterationRequest,
-    ImportOpenapiToNewIterationResponse,
     ImportOpenapiToIterationRequest,
     ImportOpenapiToIterationResponse,
 } from "./types";

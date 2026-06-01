@@ -10,6 +10,7 @@ import {
 } from "./user";
 import {
     registerAddServiceCommand,
+    registerListServiceCommand,
     registerRemoveServiceCommand,
 } from "./service";
 import { registerUpdateCommand } from "./update";
@@ -26,6 +27,7 @@ registerLoginCommand(program);
 registerLogoutCommand(program);
 registerWhoamiCommand(program);
 registerAddServiceCommand(program);
+registerListServiceCommand(program);
 registerRemoveServiceCommand(program);
 registerUpdateCommand(program);
 
