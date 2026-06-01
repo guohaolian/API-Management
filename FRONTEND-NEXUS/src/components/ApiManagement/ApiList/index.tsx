@@ -10,6 +10,7 @@ import {
 
 import styles from "../index.module.less";
 import { handleConfirm, inIterationWarning } from "@/utils";
+import { CloseIconCAM, OpenIconCAM } from "@/assets/icons";
 
 const { Search } = Input;
 
@@ -50,8 +51,37 @@ const ApiList: React.FC<ApiListProps> = (props) => {
         [treeData]
     );
 
+    const categoryKeys = useMemo(() => {
+        return (treeData || [])
+            .map((item) => String(item?.key ?? ""))
+            .filter((key) => key.startsWith("category-"));
+    }, [treeData]);
+
+    const firstOptionCategoryKey = useMemo(() => {
+        if (!firstOptionKey) {
+            return "";
+        }
+        for (const group of treeData || []) {
+            const children = (group as any)?.children || [];
+            if (
+                Array.isArray(children) &&
+                children.some((child: any) => String(child?.key) === firstOptionKey)
+            ) {
+                return String((group as any)?.key ?? "");
+            }
+        }
+        return "";
+    }, [treeData, firstOptionKey]);
+
     // 用于控制树节点选中状态
     const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
+
+    // 用于控制树节点展开/收起状态
+    const [expandedKeys, setExpandedKeys] = useState<string[]>([]);
+
+    const anyCategoryExpanded = useMemo(() => {
+        return expandedKeys.some((key) => key.startsWith("category-"));
+    }, [expandedKeys]);
 
     useEffect(() => {
         if (!firstOptionKey) {
@@ -60,6 +90,18 @@ const ApiList: React.FC<ApiListProps> = (props) => {
         setSelectedApiId(Number(firstOptionKey));
         setSelectedKeys([firstOptionKey]);
     }, [firstOptionKey]);
+
+    useEffect(() => {
+        if (!firstOptionCategoryKey) {
+            return;
+        }
+        // 默认展开包含当前选中 API 的分类，避免选中节点不可见
+        setExpandedKeys([firstOptionCategoryKey]);
+    }, [firstOptionCategoryKey]);
+
+    const handleToggleAllCategories = () => {
+        setExpandedKeys(anyCategoryExpanded ? [] : categoryKeys);
+    };
 
     const otherOperations = (
         <Menu style={{ width: 100 }}>
@@ -147,6 +189,30 @@ const ApiList: React.FC<ApiListProps> = (props) => {
         <div style={{ padding: 12 }}>
             <div className={styles.search}>
                 <Search allowClear placeholder="搜索 API" />
+                <Button
+                    type="outline"
+                    shape="square"
+                    size="mini"
+                    title={anyCategoryExpanded ? "一键收起" : "一键展开"}
+                    onClick={handleToggleAllCategories}
+                    style={{
+                        width: 28,
+                        minWidth: 28,
+                        height: 28,
+                        padding: 0,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                    }}
+                    icon={
+                        <img
+                            src={anyCategoryExpanded ? CloseIconCAM : OpenIconCAM}
+                            alt={anyCategoryExpanded ? "collapse" : "expand"}
+                            width={14}
+                            height={14}
+                        />
+                    }
+                />
                 {inIteration ? (
                     <Dropdown.Button
                         type="outline"
@@ -185,9 +251,11 @@ const ApiList: React.FC<ApiListProps> = (props) => {
                     selectedKeys={selectedKeys}
                     treeData={treeData}
                     autoExpandParent
+                    expandedKeys={expandedKeys}
                     blockNode
                     draggable={!inIteration && isLatest}
                     onSelect={handleSelectApi}
+                    onExpand={(keys) => setExpandedKeys((keys || []).map(String))}
                     onDrop={handleDrag}
                     // 删除分类按钮
                     renderExtra={(node) => {
