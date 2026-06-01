@@ -302,6 +302,17 @@ def _create_request_param_from_schema(
     # 将 JSON Schema 类型映射到内部 ParamType（并获取 array 元素类型）
     param_type, array_child_type = _map_schema_type(resolved)
 
+    # 对 array 的 items 需要先去引用再推断元素类型。
+    # 否则 items 为 $ref/oneOf/allOf 等结构时，会被误判为 string，导致无法生成树形子参数。
+    if param_type == ParamType.ARRAY:
+        items = resolved.get("items")
+        items_schema = items if isinstance(items, dict) else {}
+        if items_schema:
+            items_resolved = _deref_schema(doc, items_schema, depth=0, seen_refs=set())
+            array_child_type = _map_schema_type(items_resolved)[0]
+        else:
+            array_child_type = array_child_type or ParamType.STRING
+
     # 创建参数草稿记录，注意 description 与 example 使用安全的文本截断/序列化函数
     param = RequestParamDraft(
         api_draft_id=api_draft_id,
@@ -376,6 +387,16 @@ def _create_response_param_from_schema(
     # 去引用并映射类型（同请求参数处理，但包含 status_code）
     resolved = _deref_schema(doc, schema, depth=0, seen_refs=set())
     param_type, array_child_type = _map_schema_type(resolved)
+
+    # array 的 items 同样需要先 deref 再推断元素类型（支持 $ref/组合 schema）。
+    if param_type == ParamType.ARRAY:
+        items = resolved.get("items")
+        items_schema = items if isinstance(items, dict) else {}
+        if items_schema:
+            items_resolved = _deref_schema(doc, items_schema, depth=0, seen_refs=set())
+            array_child_type = _map_schema_type(items_resolved)[0]
+        else:
+            array_child_type = array_child_type or ParamType.STRING
 
     param = ResponseParamDraft(
         api_draft_id=api_draft_id,

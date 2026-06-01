@@ -26,25 +26,39 @@ const requestColumns = [
         width: 160,
         render: (v: string, record: RequestParam | RequestParamDraft) => {
             const childrenParams = record.children_params || [];
-            if (!childrenParams || childrenParams.length === 0) {
+            const showSubParams =
+                record.type === "object" ||
+                (record.type === "array" && record.array_child_type === "object");
+
+            if (!showSubParams) {
                 return v;
             }
+
             const popoverText =
                 record.type === "array" && record.array_child_type === "object"
                     ? "点击查看数组元素子参数"
                     : "点击查看子参数";
+
             return (
                 <Popover content={popoverText}>
                     <Popover
                         trigger="click"
                         content={
-                            <Table<RequestParam | RequestParamDraft>
-                                pagination={false}
-                                columns={requestColumns as any}
-                                rowKey="name"
-                                data={childrenParams}
-                                size="small"
-                            />
+                            childrenParams.length > 0 ? (
+                                <Table<RequestParam | RequestParamDraft>
+                                    pagination={false}
+                                    columns={requestColumns as any}
+                                    rowKey="name"
+                                    data={childrenParams}
+                                    size="small"
+                                />
+                            ) : (
+                                <div style={{ padding: 12 }}>
+                                    <Text type="secondary">
+                                        暂无子参数（该参数支持子参数，但未定义子字段；可能是 additionalProperties/map 类型）
+                                    </Text>
+                                </div>
+                            )
                         }
                         style={{ width: 1000, maxWidth: 1000 }}
                     >
