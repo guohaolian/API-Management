@@ -114,9 +114,17 @@ def addCategoryByServiceId(request: Request):
 def deleteCategoryById(request: Request):
     data = request.json()
     category_id = data["category_id"]
+    service_iteration_id = data.get("service_iteration_id")
     user_id = userGetUserIdByAccessToken(request)
     with session() as db:
-        res = apiDeleteCategoryById(db=db, category_id=category_id, user_id=user_id)
+        res = apiDeleteCategoryById(
+            db=db,
+            category_id=category_id,
+            user_id=user_id,
+            service_iteration_id=int(service_iteration_id)
+            if service_iteration_id is not None
+            else None,
+        )
     return res
 
 

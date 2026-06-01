@@ -262,11 +262,17 @@ def apiAddCategoryByServiceId(
 
 
 # 通过category_id删除category
-def apiDeleteCategoryById(db: Session, category_id: int, user_id: int) -> dict:
+def apiDeleteCategoryById(
+    db: Session,
+    category_id: int,
+    user_id: int,
+    service_iteration_id: int | None = None,
+) -> dict:
     """删除指定的 `ApiCategory`。
 
-    权限：非 L0 用户需为服务 owner 或 maintainer。
-    注意：删除分类不会自动修改该分类下的 API，需由上层调用者保证数据一致性或在前端提醒。
+    权限：非 L0 用户需为服务 owner 或 maintainer；迭代模式下额外校验迭代权限。
+    非迭代模式：仅允许删除空分类（无关联 Api）。
+    迭代模式：同时删除该迭代下该分类的所有 ApiDraft 及其参数，并解除正式 Api 对该分类的引用。
     """
     category = db.get(ApiCategory, category_id)
     if not category:
@@ -274,21 +280,62 @@ def apiDeleteCategoryById(db: Session, category_id: int, user_id: int) -> dict:
             "status": -1,
             "message": "Category not found",
         }
-    # 权限检查：验证用户存在并具有操作权限（owner/maintainer/L0）
-    user = db.get(User, user_id)
-    if not user:
-        return {
-            "status": -2,
-            "message": "User not found",
-        }
-    if category.service.owner_id != user_id and user not in category.service.maintainers and user.level.value != 0:  # type: ignore
-        return {
-            "status": -3,
-            "message": "You are neither the owner nor the maintainer of this service",
-        }
-    # 删除该分类实体（ORM 会在 commit 时执行 DELETE）
+
+    if service_iteration_id is not None:
+        check_res = checkServiceIterationPermission(
+            db=db, service_iteration_id=service_iteration_id, user_id=user_id
+        )
+        if not check_res["is_ok"]:
+            return check_res["error"]
+        service_iteration = check_res["service_iteration"]
+        if category.service_id != service_iteration.service_id:  # type: ignore
+            return {
+                "status": -4,
+                "message": "Category not belongs to this service iteration",
+            }
+
+        api_draft_ids = [
+            row[0]
+            for row in db.query(ApiDraft.id)
+            .filter(
+                ApiDraft.service_iteration_id == service_iteration_id,
+                ApiDraft.category_id == category_id,
+            )
+            .all()
+        ]
+        if api_draft_ids:
+            db.query(RequestParamDraft).filter(
+                RequestParamDraft.api_draft_id.in_(api_draft_ids)
+            ).delete(synchronize_session=False)
+            db.query(ResponseParamDraft).filter(
+                ResponseParamDraft.api_draft_id.in_(api_draft_ids)
+            ).delete(synchronize_session=False)
+            db.query(ApiDraft).filter(ApiDraft.id.in_(api_draft_ids)).delete(
+                synchronize_session=False
+            )
+
+        db.query(Api).filter(Api.category_id == category_id).update(
+            {Api.category_id: None}, synchronize_session=False
+        )
+    else:
+        user = db.get(User, user_id)
+        if not user:
+            return {
+                "status": -2,
+                "message": "User not found",
+            }
+        if category.service.owner_id != user_id and user not in category.service.maintainers and user.level.value != 0:  # type: ignore
+            return {
+                "status": -3,
+                "message": "You are neither the owner nor the maintainer of this service",
+            }
+        if db.query(Api).filter(Api.category_id == category_id).first():
+            return {
+                "status": -4,
+                "message": "Category has apis, cannot delete",
+            }
+
     db.delete(category)
-    # 提交事务以使删除操作生效
     db.commit()
     return {
         "status": 200,

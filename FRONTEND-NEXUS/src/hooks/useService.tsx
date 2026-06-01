@@ -314,6 +314,8 @@ export const useThisService = (service_uuid: string) => {
     >({} as ServiceDetail);
     const [apiCategories, setApiCategories] = useState<ApiCategory[]>([]);
     const [apis, setApis] = useState<ApiBrief[]>([]);
+    const [inIteration, setInIteration] = useState(false);
+    const [iterationId, setIterationId] = useState<number>(-1);
 
     const fetchAllVersions = useCallback(async () => {
         setLoading(true);
@@ -516,7 +518,13 @@ export const useThisService = (service_uuid: string) => {
     const handleDeleteCategory = useCallback(
         async (category_id: number) => {
             try {
-                const res = await DeleteCategoryById({ category_id });
+                const payload: Parameters<typeof DeleteCategoryById>[0] = {
+                    category_id,
+                };
+                if (inIteration && iterationId > 0) {
+                    payload.service_iteration_id = iterationId;
+                }
+                const res = await DeleteCategoryById(payload);
                 if (res.status !== 200) {
                     throw new Error(res.message || "分类删除失败");
                 }
@@ -524,12 +532,14 @@ export const useThisService = (service_uuid: string) => {
                 setApiCategories((prev) =>
                     prev.filter((cat) => cat.id !== category_id),
                 );
+                return true;
             } catch (err: unknown) {
                 const msg = err instanceof Error ? err.message : "分类删除失败";
                 Message.warning(msg);
+                return false;
             }
         },
-        [currentVersion, fetchServiceDetail],
+        [currentVersion, fetchServiceDetail, inIteration, iterationId],
     );
 
     const checkIsServiceMaintainer = useCallback(
@@ -593,10 +603,6 @@ export const useThisService = (service_uuid: string) => {
             return null;
         }
     }, [service_uuid, currentVersion]);
-
-    // 迭代相关
-    const [inIteration, setInIteration] = useState(false);
-    const [iterationId, setIterationId] = useState<number>(-1);
 
     const handleStartIteration = useCallback(async () => {
         try {

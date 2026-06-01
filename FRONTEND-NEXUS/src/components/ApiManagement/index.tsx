@@ -13,8 +13,7 @@ import { inIterationWarning } from "@/utils";
 import { ImportOpenapiToIteration } from "@/services/service";
 
 const ApiManagement: React.FC = () => {
-    const [searchParams] = useSearchParams();
-    const uuid = searchParams.get("uuid") || "";
+    const [searchParams] = useSearchParams();    const uuid = searchParams.get("uuid") || "";
     const {
         loading,
         versions,
@@ -89,6 +88,17 @@ const ApiManagement: React.FC = () => {
         [inIteration, iterationId, fetchIterationDetail],
     );
 
+    const handleDeleteCategoryWithRefresh = useCallback(
+        async (categoryId: number) => {
+            const ok = await handleDeleteCategory(categoryId);
+            if (ok && inIteration) {
+                setSelectedApiId(-1);
+                await fetchIterationDetail();
+            }
+        },
+        [handleDeleteCategory, inIteration, fetchIterationDetail],
+    );
+
     const isLoading =
         loading ||
         !versions ||
@@ -158,7 +168,7 @@ const ApiManagement: React.FC = () => {
                             handleAddApi,
                             handleAddCategory,
                             handleUpdateApiCategory,
-                            handleDeleteCategory,
+                            handleDeleteCategory: handleDeleteCategoryWithRefresh,
                             handleStartIteration,
                             handleCompleteIteration,
                         }}

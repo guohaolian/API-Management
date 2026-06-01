@@ -183,6 +183,7 @@ export interface AddCategoryByServiceIdResponse extends BaseResponse {
 
 export interface DeleteCategoryByIdRequest {
     category_id: number;
+    service_iteration_id?: number;
 }
 
 export type DeleteCategoryByIdResponse = BaseResponse;

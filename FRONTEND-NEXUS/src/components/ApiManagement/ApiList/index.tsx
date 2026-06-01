@@ -259,47 +259,52 @@ const ApiList: React.FC<ApiListProps> = (props) => {
                     onDrop={handleDrag}
                     // 删除分类按钮
                     renderExtra={(node) => {
-                        if (
+                        const isCategoryNode =
                             !node.draggable &&
                             !node.selectable &&
-                            !node.childrenData?.length &&
-                            node._key !== "category-null"
-                        ) {
-                            // 没有子节点的 category 节点（不包括未分类节点）
-                            return (
-                                <Button
-                                    onClick={() =>
-                                        handleConfirm(
-                                            () =>
-                                                handleDeleteCategory(
-                                                    Number(
-                                                        node?._key?.replace(
-                                                            "category-",
-                                                            ""
-                                                        ) ?? -1
-                                                    )
-                                                ),
-                                            "删除",
-                                            "确认删除当前分类？"
-                                        )
-                                    }
-                                    type="outline"
-                                    status="danger"
-                                    shape="circle"
-                                    size="mini"
-                                    className={styles.nodeDelete}
-                                    style={{
-                                        width: 20,
-                                        height: 20,
-                                        position: "absolute",
-                                        top: 0,
-                                        right: 0,
-                                    }}
-                                    icon={<IconDelete />}
-                                />
-                            );
+                            node._key !== "category-null";
+                        const isEmptyCategory =
+                            isCategoryNode && !node.childrenData?.length;
+                        const canDeleteCategory =
+                            isEmptyCategory ||
+                            (inIteration && isCategoryNode);
+                        if (!canDeleteCategory) {
+                            return null;
                         }
-                        return null;
+                        return (
+                            <Button
+                                onClick={() =>
+                                    handleConfirm(
+                                        () =>
+                                            handleDeleteCategory(
+                                                Number(
+                                                    node?._key?.replace(
+                                                        "category-",
+                                                        ""
+                                                    ) ?? -1
+                                                )
+                                            ),
+                                        "删除",
+                                        inIteration
+                                            ? "确认删除该分类及其下所有 API？"
+                                            : "确认删除当前分类？"
+                                    )
+                                }
+                                type="outline"
+                                status="danger"
+                                shape="circle"
+                                size="mini"
+                                className={styles.nodeDelete}
+                                style={{
+                                    width: 20,
+                                    height: 20,
+                                    position: "absolute",
+                                    top: 0,
+                                    right: 0,
+                                }}
+                                icon={<IconDelete />}
+                            />
+                        );
                     }}
                 />
             )}
