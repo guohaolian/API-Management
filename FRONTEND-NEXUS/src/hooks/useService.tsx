@@ -52,7 +52,9 @@ import {
     UpdateApiByApiDraftId,
     UpdateApiCategoryById,
 } from "@/services/api";
-import CompleteIterationForm from "@/components/ApiManagement/ApiList/CompleteIterationForm";
+import CompleteIterationForm, {
+    incrementVersion,
+} from "@/components/ApiManagement/ApiList/CompleteIterationForm";
 import type {
     AddApiRequest,
     UpdateApiByApiDraftIdRequest,
@@ -625,9 +627,40 @@ export const useThisService = (service_uuid: string) => {
     }, [serviceDetail.id, currentVersion, fetchServiceDetail]);
 
     const handleCompleteIteration = useCallback(async () => {
+        let serverLatestVersion = currentVersion;
+        try {
+            const res = await GetAllVersionsByUuid(service_uuid);
+            if (res.status === 200 && res.versions?.[0]?.version) {
+                serverLatestVersion = res.versions[0].version;
+            }
+        } catch {
+            // 获取失败时回退到本地缓存的版本号
+        }
+
+        const suggestedFromLocal = incrementVersion(currentVersion);
+        const hasVersionConflict =
+            !!suggestedFromLocal && suggestedFromLocal === serverLatestVersion;
+
         const modal = CModal.openArcoForm({
             title: "完成迭代",
-            content: <CompleteIterationForm currentVersion={currentVersion} />,
+            content: (
+                <CompleteIterationForm
+                    currentVersion={
+                        hasVersionConflict
+                            ? serverLatestVersion
+                            : currentVersion
+                    }
+                    initialNewVersion={
+                        hasVersionConflict
+                            ? incrementVersion(serverLatestVersion)
+                            : suggestedFromLocal
+                    }
+                    versionConflict={hasVersionConflict}
+                    conflictServerVersion={
+                        hasVersionConflict ? serverLatestVersion : undefined
+                    }
+                />
+            ),
             cancelText: t("common.cancel"),
             okText: "确定",
             onOk: async (values, form) => {
@@ -656,7 +689,7 @@ export const useThisService = (service_uuid: string) => {
                 }
             },
         });
-    }, [iterationId, currentVersion, fetchServiceDetail]);
+    }, [iterationId, currentVersion, service_uuid]);
 
     const exitIteration = () => {
         setInIteration(false);

@@ -2,20 +2,43 @@ import React, { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Form, Input } from "@cloud-materials/common";
 
-const CompleteIterationForm: React.FC<{ currentVersion: string }> = ({
+export const incrementVersion = (version: string): string => {
+    if (!version) return "";
+    const parts = version.split(".");
+    if (parts.length === 3) {
+        return `${parts[0]}.${parts[1]}.${Number(parts[2]) + 1}`;
+    }
+    return "";
+};
+
+interface CompleteIterationFormProps {
+    currentVersion: string;
+    initialNewVersion?: string;
+    versionConflict?: boolean;
+    conflictServerVersion?: string;
+}
+
+const CompleteIterationForm: React.FC<CompleteIterationFormProps> = ({
     currentVersion,
+    initialNewVersion,
+    versionConflict,
+    conflictServerVersion,
 }) => {
     const { i18n } = useTranslation();
     const currentLanguage = i18n.resolvedLanguage;
 
-    const suggestVersionPlaceholder = useMemo(() => {
-        if (!currentVersion) return "";
-        const parts = currentVersion.split(".");
-        if (parts.length === 3) {
-            return `${parts[0]}.${parts[1]}.${Number(parts[2]) + 1}`;
-        }
-        return "";
-    }, [currentVersion]);
+    const suggestVersionPlaceholder = useMemo(
+        () => initialNewVersion || incrementVersion(currentVersion),
+        [currentVersion, initialNewVersion],
+    );
+
+    const updatedVersionSuggestion = useMemo(
+        () =>
+            conflictServerVersion
+                ? incrementVersion(conflictServerVersion)
+                : "",
+        [conflictServerVersion],
+    );
 
     const validateVersion = (
         value: string | undefined,
@@ -54,6 +77,11 @@ const CompleteIterationForm: React.FC<{ currentVersion: string }> = ({
 
     return (
         <>
+            {versionConflict && conflictServerVersion && updatedVersionSuggestion && (
+                <div style={{ color: "#f53f3f", marginBottom: 16, lineHeight: 1.6 }}>
+                    当前有新的版本号“{conflictServerVersion}”，请使用更新的版本号“{updatedVersionSuggestion}”
+                </div>
+            )}
             <Form.Item
                 label="新版本号"
                 labelCol={currentLanguage === "en-US" ? { span: 7 } : undefined}
