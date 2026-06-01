@@ -43,6 +43,88 @@ cd BACKEND-NEXUS
 
 后端默认监听 `http://127.0.0.1:1024`（根路径 `/` 返回 `OK`）。
 
+启动后可访问交互式接口文档：
+
+- Swagger UI：`http://127.0.0.1:1024/docs`
+- OpenAPI JSON：`http://127.0.0.1:1024/openapi.json`
+
+## 接口文档
+
+本后端采用 **RPC 风格** 设计：查询类操作用 `GET`，其余写操作用 `POST`；路径以动词命名（如 `/getXxx`、`/deleteXxx`），**不是 RESTful 资源路径**。
+
+### 通用约定
+
+| 项 | 说明 |
+|---|---|
+| Base URL | `http://127.0.0.1:1024`（端口由 `.env` 中 `PORT` 控制） |
+| 鉴权 | 除登录、注册外，需在请求头携带 `Authorization: Bearer <access_token>` |
+| 参数缺失 / 格式错误 | HTTP `400`，`description` 为错误说明 |
+| 业务逻辑错误 | HTTP `200`，响应体中 `status` 为负数，`message` 为错误描述 |
+| 查询成功 | HTTP `200`，直接返回数据对象或列表 |
+| 写操作成功 | HTTP `200`，返回 `{ "status": 200, "message": "...", ... }` |
+
+特殊权限：`/v1/user/getUserById` 仅 `L0` 用户可访问（见 `authentication.py` 中 `API_PERMISSION_MAP`）。
+
+### 健康检查
+
+| 方法 | 路径 | 鉴权 | 说明 |
+|---|---|---|---|
+| GET | `/` | 否 | 健康检查，返回 `OK` |
+
+### 用户 `/v1/user`
+
+| 方法 | 路径 | 鉴权 | 参数 | 功能 |
+|---|---|---|---|---|
+| GET | `/v1/user/getUserById` | 是（L0） | Query: `id` | 按用户 ID 获取用户详情 |
+| GET | `/v1/user/getMyInfo` | 是 | — | 获取当前登录用户详情 |
+| GET | `/v1/user/getUserByUsernameOrNicknameOrEmail` | 是 | Query: `username_or_nickname_or_email` | 按用户名 / 昵称 / 邮箱搜索用户 |
+| POST | `/v1/user/login` | 否 | Body: `username`, `password` | 登录，返回 `access_token` |
+| POST | `/v1/user/register` | 否 | Body: `username`, `password`, `nickname`, `email`, `role` | 注册新用户 |
+| POST | `/v1/user/modifyPassword` | 是 | Body: `old_password`, `new_password` | 修改当前用户密码 |
+
+### 服务 `/v1/service`
+
+| 方法 | 路径 | 鉴权 | 参数 | 功能 |
+|---|---|---|---|---|
+| GET | `/v1/service/getServiceById` | 是 | Query: `id` | 按服务 ID 获取服务详情 |
+| GET | `/v1/service/getAllServices` | 是 | Query: `page_size`（默认 10）, `current_page`（默认 1） | 分页获取全部服务 |
+| GET | `/v1/service/getHisNewestServicesByOwnerId` | 是 | Query: `page_size`, `current_page`, `is_my_services`（默认 true）, `owner_id`（`is_my_services=false` 时必填） | 获取某用户拥有的最新版本服务列表 |
+| GET | `/v1/service/getHisMaintainedServicesByUserId` | 是 | Query: `page_size`, `current_page`, `user_id`（默认当前用户） | 获取某用户维护的服务列表 |
+| GET | `/v1/service/getServiceByUuidAndVersion` | 是 | Query: `service_uuid`, `version`（可为 `latest`） | 按 UUID 与版本获取服务详情（含分类与 API 聚合数据） |
+| GET | `/v1/service/getAllVersionsByUuid` | 是 | Query: `service_uuid` | 获取某服务的全部历史版本号 |
+| GET | `/v1/service/getAllDeletedServicesByUserId` | 是 | Query: `page_size`, `current_page` | 分页获取当前用户已软删除的服务 |
+| GET | `/v1/service/isServiceMaintainer` | 是 | Query: `service_id`, `candidate_id` | 判断候选用户是否为该服务的维护者 |
+| GET | `/v1/service/getIterationById` | 是 | Query: `id` | 获取指定迭代（ServiceIteration）详情 |
+| GET | `/v1/service/exportOpenapiByUuidAndVersion` | 是 | Query: `service_uuid`, `version`（可为 `latest`） | 导出指定服务版本的 OpenAPI 3.1 JSON |
+| POST | `/v1/service/createNewService` | 是 | Body: `service_uuid`, `description` | 创建新服务（初始版本 `0.0.1`） |
+| POST | `/v1/service/addOrRemoveServiceMaintainerById` | 是 | Body: `service_id`, `candidate_id` | 添加或移除服务维护者 |
+| POST | `/v1/service/deleteServiceById` | 是 | Body: `id` | 软删除服务（仅最新版本，历史版本保留） |
+| POST | `/v1/service/restoreServiceById` | 是 | Body: `id` | 还原已软删除的服务 |
+| POST | `/v1/service/deleteIterationById` | 是 | Body: `service_iteration_id` | 删除服务的历史迭代版本 |
+| POST | `/v1/service/startIteration` | 是 | Body: `service_id` | 发起迭代，从当前最新版本复制草稿，返回 `service_iteration_id` |
+| POST | `/v1/service/commitIteration` | 是 | Body: `service_iteration_id`, `new_version` | 提交迭代，将草稿写入正式版本并更新版本号 |
+| POST | `/v1/service/updateDescription` | 是 | Body: `service_iteration_id`, `description` | 在迭代中修改服务描述 |
+| POST | `/v1/service/importOpenapiToNewIteration` | 是 | Body: `service_id`, `openapi_object` | 从 OpenAPI 文档创建新迭代并写入草稿 |
+| POST | `/v1/service/importOpenapiToIteration` | 是 | Body: `service_iteration_id`, `openapi_object` | 将 OpenAPI 文档导入当前迭代（覆盖草稿） |
+
+### API 与分类 `/v1/api`
+
+| 方法 | 路径 | 鉴权 | 参数 | 功能 |
+|---|---|---|---|---|
+| GET | `/v1/api/getAllCategoriesByServiceId` | 是 | Query: `service_id` | 获取服务的全部分类 |
+| GET | `/v1/api/getAllApisByServiceId` | 是 | Query: `service_id`, `category_id` | 获取某分类下的 API 列表 |
+| GET | `/v1/api/getApiById` | 是 | Query: `api_id`, `is_latest`（默认 true） | 获取 API 详情（正式版或草稿版） |
+| POST | `/v1/api/addCategoryByServiceId` | 是 | Body: `service_id`, `category_name`, `description` | 新增 API 分类 |
+| POST | `/v1/api/deleteCategoryById` | 是 | Body: `category_id`, `service_iteration_id`（可选，迭代中删除时传入） | 删除分类 |
+| POST | `/v1/api/updateCategoryById` | 是 | Body: `category_id`, `category_name`, `description` | 更新分类名称与描述 |
+| POST | `/v1/api/updateApiCategoryById` | 是 | Body: `api_id`, `category_id` | 修改已发布 API 所属分类（非迭代操作） |
+| POST | `/v1/api/addApi` | 是 | Body: `service_iteration_id`, `name`, `method`, `path`, `description`, `level`, `category_id`（可选） | 在迭代中新增 API 草稿 |
+| POST | `/v1/api/copyApiByApiDraftId` | 是 | Body: `service_iteration_id`, `api_draft_id` | 在同一迭代内复制 API 草稿 |
+| POST | `/v1/api/deleteApiByApiDraftId` | 是 | Body: `service_iteration_id`, `api_draft_id` | 在迭代中删除 API 草稿 |
+| POST | `/v1/api/updateApiByApiDraftId` | 是 | Body: `service_iteration_id`, `api_draft_id`, `name`, `method`, `path`, `description`, `level`, `req_params`, `resp_params`（后两者为 JSON 字符串） | 在迭代中更新 API 草稿及其请求 / 响应参数树 |
+
+> 说明：前端通常通过 `getServiceByUuidAndVersion` 一次性获取分类与 API 聚合数据，因此 `getAllCategoriesByServiceId`、`getAllApisByServiceId` 在前端较少直接调用。
+
 ## 环境变量（`.env`）
 
 环境变量文件不纳入 git，请从 [.env.example](.env.example) 复制后修改。字段如下：
