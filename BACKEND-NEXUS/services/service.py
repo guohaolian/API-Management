@@ -785,7 +785,7 @@ async def serviceCommitIteration(
         subject=f"服务 {service.service_uuid} 版本更新",
         content=(
             f"您好！您负责 / 维护的服务 {service.service_uuid} 已更新到版本 {new_version}。\n"
-            f"可通过 https://cam-api.com/service?uuid={service.service_uuid} 查看详情。\n\n"
+            f"可通过 http://8.146.239.234:8066/service?uuid={service.service_uuid} 查看详情。\n\n"
             f"操作人：{operator.nickname} ({operator.username}) - {operator.email}\n"
         ),
     )
