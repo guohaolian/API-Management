@@ -11,3 +11,6 @@ future.txt
 
 DEPLOY-ALIYUN.md
 .env.production
+deploy/aliyun/deploy.env
+
+GITHUB-ACTIONS-DEPLOY.md

@@ -191,5 +191,7 @@ nexus update
 ## 更多文档
 
 - 产品说明（PRD）：[docs/PRD.md](docs/PRD.md)
+- 阿里云部署（含自动更新）：[docs/DEPLOY-ALIYUN.md](docs/DEPLOY-ALIYUN.md) 第 14 节
+- GitHub Actions 补充说明：[docs/GITHUB-ACTIONS-DEPLOY.md](docs/GITHUB-ACTIONS-DEPLOY.md)
 - 后端说明：见 [BACKEND-NEXUS/README.md](BACKEND-NEXUS/README.md)
 - 生成器说明：见 [nexus-api-codegen/README.md](nexus-api-codegen/README.md)
