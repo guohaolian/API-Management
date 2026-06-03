@@ -36,6 +36,10 @@
     "copySuccess": "Copied successfully",
     "copyFailure": "Copy failed"
   },
+  "theme": {
+    "switchToLight": "Switch to light theme",
+    "switchToDark": "Switch to dark theme"
+  },
   "confirm": {
     "title": "Confirm {{action}}",
     "defaultContent": "Are you sure you want to {{action}}?",

@@ -15,6 +15,7 @@ import { useTranslation } from "react-i18next";
 import styles from "./index.module.less";
 import { LogoCAM } from "@/assets/icons";
 import Profile from "@/components/User/Profile";
+import ThemeSwitch from "@/components/Theme/ThemeSwitch";
 import type { UserProfile } from "@/services/user/types";
 
 interface HeaderProps {
@@ -75,12 +76,14 @@ const Header: React.FC<HeaderProps> = (props: HeaderProps) => {
                 </div>
             }
             subTitle={
-                <div style={{ fontSize: "15px", color: "#999" }}>
+                <div className={styles.subtitle}>
                     Clean, Accurate, Maintainable
                 </div>
             }
             extra={
                 <Space size={"large"}>
+                    <ThemeSwitch />
+
                     <Dropdown droplist={languageMenu} position="bottom">
                         <div className={styles["language-button"]}>
                             <Space>

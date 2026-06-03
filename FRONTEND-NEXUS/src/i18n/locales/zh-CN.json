@@ -36,6 +36,10 @@
     "copySuccess": "复制成功",
     "copyFailure": "复制失败"
   },
+  "theme": {
+    "switchToLight": "切换到浅色主题",
+    "switchToDark": "切换到深色主题"
+  },
   "confirm": {
     "title": "确认{{action}}",
     "defaultContent": "是否确认{{action}}？",

@@ -6,6 +6,20 @@
   <link rel="icon" type="image/svg+xml" href="/logo.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>API 管理 NEXUS</title>
+  <script>
+    (function () {
+      try {
+        var k = "nexus-theme-appearance";
+        var p = localStorage.getItem(k) || "auto";
+        var q = window.matchMedia("(prefers-color-scheme: dark)");
+        var d = p === "auto" ? q.matches : p === "dark";
+        document.documentElement.classList.toggle("dark", d);
+        if (d) {
+          document.body.setAttribute("arco-theme", "dark");
+        }
+      } catch (e) {}
+    })();
+  </script>
 </head>
 
 <body>
