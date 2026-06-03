@@ -284,6 +284,7 @@ CLI 使用流程：
 - `POST /updateDescription`
 - `GET /exportOpenapiByUuidAndVersion`
 - `POST /importOpenapiToIteration`
+- `GET /compareVersionsByUuid`（diff对比）
 
 ### 9.3 API（/v1/api）
 
@@ -325,6 +326,6 @@ CLI 使用流程：
 
 ### 11.2 规划方向（与现有设计一致）
 
-- 版本差异对比（Service/API/参数树 diff）
+- 版本差异对比（Service/API/参数树 diff）已实现
 - 迭代审批/变更审计
 - 团队协作（maintainer、成员权限、跨服务访问策略）

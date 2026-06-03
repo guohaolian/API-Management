@@ -12,6 +12,9 @@ const BACKEND_MESSAGE_KEY_MAP: Record<string, string> = {
     "You are not the creator of this service iteration":
         "backend.notIterationCreator",
     "Get service versions success": "backend.getServiceVersionsSuccess",
+    "Compare service versions success": "backend.compareVersionsSuccess",
+    "Base version and compare version must differ":
+        "backend.compareVersionsSame",
     "Service UUID already exists": "backend.serviceUuidExists",
     "Create service success": "backend.createServiceSuccess",
     "Get deleted services success": "backend.getDeletedServicesSuccess",

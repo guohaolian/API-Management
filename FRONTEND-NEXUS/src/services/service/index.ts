@@ -27,6 +27,7 @@ import type {
     IsServiceMaintainerRequest,
     IsServiceMaintainerResponse,
     ExportOpenapiByUuidAndVersionResponse,
+    CompareVersionsByUuidResponse,
     ImportOpenapiToIterationRequest,
     ImportOpenapiToIterationResponse,
 } from "./types";
@@ -187,6 +188,18 @@ export const AddOrRemoveServiceMaintainerById = async (
     return api.post<AddOrRemoveServiceMaintainerByIdResponse>(
         `${prefix}/addOrRemoveServiceMaintainerById`,
         data
+    );
+};
+
+// 对比两个版本的 Service/API/参数树差异
+export const CompareVersionsByUuid = async (
+    service_uuid: string,
+    base_version: string,
+    compare_version: string
+) => {
+    return api.get<CompareVersionsByUuidResponse>(
+        `${prefix}/compareVersionsByUuid`,
+        { service_uuid, base_version, compare_version }
     );
 };
 

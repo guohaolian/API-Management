@@ -95,6 +95,7 @@ cd BACKEND-NEXUS
 | GET | `/v1/service/getAllDeletedServicesByUserId` | 是 | Query: `page_size`, `current_page` | 分页获取当前用户已软删除的服务 |
 | GET | `/v1/service/isServiceMaintainer` | 是 | Query: `service_id`, `candidate_id` | 判断候选用户是否为该服务的维护者 |
 | GET | `/v1/service/getIterationById` | 是 | Query: `id` | 获取指定迭代（ServiceIteration）详情 |
+| GET | `/v1/service/compareVersionsByUuid` | 是 | Query: `service_uuid`, `base_version`, `compare_version` | 对比两个已发布版本的 Service/API/参数树差异 |
 | GET | `/v1/service/exportOpenapiByUuidAndVersion` | 是 | Query: `service_uuid`, `version`（可为 `latest`） | 导出指定服务版本的 OpenAPI 3.1 JSON |
 | POST | `/v1/service/createNewService` | 是 | Body: `service_uuid`, `description` | 创建新服务（初始版本 `0.0.1`） |
 | POST | `/v1/service/addOrRemoveServiceMaintainerById` | 是 | Body: `service_id`, `candidate_id` | 添加或移除服务维护者 |

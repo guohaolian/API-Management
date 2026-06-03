@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import VersionDiffModal from "./VersionDiffModal";
 import debounce from "lodash/debounce";
 import {
-    // Badge,
+    //Badge,
     Breadcrumb,
     Button,
     Message,
@@ -240,6 +241,8 @@ const Header: React.FC<HeaderProps> = (props) => {
             </Space>
         </div>
     );
+
+    const [versionDiffVisible, setVersionDiffVisible] = useState(false);
 
     // 导出 OpenAPI
     const [exportLoading, setExportLoading] = useState(false);
@@ -520,14 +523,23 @@ const Header: React.FC<HeaderProps> = (props) => {
                         </Space>
                     )}
                 <Space size={10}>
-                    {/* <Badge text="NEW"> */}
+                    {versions.length >= 2 && (
                         <Button
                             type="default"
-                            status="success"
-                            onClick={exportAndDownloadOpenAPI}
-                            loading={exportLoading}
+                            status="warning"
+                            onClick={() => setVersionDiffVisible(true)}
                         >
-                            {translate("apiManagement.exportOpenapi")}
+                            {translate("apiManagement.versionDiff")}
+                        </Button>
+                    )}
+                    {/* <Badge text="New"> */}
+                        <Button
+                        type="default"
+                        status="success"
+                        onClick={exportAndDownloadOpenAPI}
+                        loading={exportLoading}
+                        >
+                        {translate("apiManagement.exportOpenapi")}
                         </Button>
                     {/* </Badge> */}
                     {inIteration && (
@@ -551,6 +563,13 @@ const Header: React.FC<HeaderProps> = (props) => {
                     )}
                 </Space>
             </Space>
+            <VersionDiffModal
+                visible={versionDiffVisible}
+                serviceUuid={serviceUuid}
+                versions={versions}
+                currentVersion={currentVersion}
+                onClose={() => setVersionDiffVisible(false)}
+            />
         </div>
     );
 };

@@ -380,6 +380,30 @@ def updateDescription(request: Request):
     return res
 
 
+# 对比两个版本的 Service/API/参数树差异
+@serviceRouterV1.get("/compareVersionsByUuid", auth_required=True)
+def compareVersionsByUuid(request: Request):
+    service_uuid = request.query_params.get("service_uuid", None)
+    base_version = request.query_params.get("base_version", None)
+    compare_version = request.query_params.get("compare_version", None)
+    if not service_uuid or not base_version or not compare_version:
+        return Response(
+            status_code=400,
+            description="service_uuid, base_version and compare_version are required",
+            headers={},
+        )
+    user_id = userGetUserIdByAccessToken(request=request)
+    with session() as db:
+        res = serviceCompareVersionsByUuid(
+            db=db,
+            service_uuid=service_uuid,
+            base_version=base_version,
+            compare_version=compare_version,
+            user_id=user_id,
+        )
+    return res
+
+
 # 导出openapi
 @serviceRouterV1.get("/exportOpenapiByUuidAndVersion", auth_required=True)
 def exportOpenapiByUuidAndVersion(request: Request):

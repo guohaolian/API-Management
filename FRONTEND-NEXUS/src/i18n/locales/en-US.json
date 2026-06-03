@@ -65,6 +65,7 @@
     "restoreServiceSuccess": "Service restored successfully",
     "restoreServiceFailed": "Failed to restore service",
     "fetchVersionsFailed": "Failed to fetch versions",
+    "compareVersionsFailed": "Failed to compare versions",
     "fetchServiceDetailFailed": "Failed to fetch service details",
     "addCategorySuccess": "Category added successfully",
     "addCategoryFailed": "Failed to add category",
@@ -150,6 +151,7 @@
     "notLatestVersion": "Historical Version",
     "serviceMaintainers": "Service Maintainers",
     "exportOpenapi": "Export OpenAPI",
+    "versionDiff": "Compare Versions",
     "importOpenapi": "Import OpenAPI",
     "relatedMembers": "Members of {{uuid}}",
     "memberCount": "{{count}} members",
@@ -424,6 +426,30 @@
     "wrongOldPassword": "Wrong old password",
     "newPasswordSameAsOld": "New password cannot be the same as old password",
     "modifyPasswordSuccess": "Password updated successfully",
-    "sendEmailFailed": "Failed to send email: {{detail}}"
+    "sendEmailFailed": "Failed to send email: {{detail}}",
+    "compareVersionsSuccess": "Version comparison completed",
+    "compareVersionsSame": "Base and compare versions must differ"
+  },
+  "versionDiff": {
+    "title": "Version Diff",
+    "baseVersion": "Base",
+    "compareVersion": "Compare",
+    "refresh": "Refresh",
+    "sameVersionHint": "Select two different versions",
+    "hasChanges": "Changes detected",
+    "noChanges": "No differences",
+    "serviceSection": "Service description",
+    "categoriesSection": "API categories",
+    "apisSection": "APIs & parameters",
+    "added": "Added",
+    "removed": "Removed",
+    "modified": "Modified",
+    "field": "Field",
+    "oldValue": "Old",
+    "newValue": "New",
+    "apiFields": "API fields",
+    "requestParams": "Request parameters",
+    "responseParams": "Response parameters",
+    "noParamChanges": "No parameter changes"
   }
 }

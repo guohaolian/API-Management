@@ -180,6 +180,90 @@ export interface ExportOpenapiByUuidAndVersionResponse extends BaseResponse {
     is_latest: boolean;
 }
 
+export type DiffChangeType = "added" | "removed" | "modified";
+
+export interface FieldChange {
+    field: string;
+    old?: unknown;
+    new?: unknown;
+}
+
+export interface ParamDiffEntry {
+    path: string;
+    param?: Record<string, unknown>;
+    field_changes?: FieldChange[];
+    base?: Record<string, unknown>;
+    compare?: Record<string, unknown>;
+}
+
+export interface ParamsDiffBlock {
+    added: ParamDiffEntry[];
+    removed: ParamDiffEntry[];
+    modified: ParamDiffEntry[];
+    has_changes?: boolean;
+}
+
+export interface ApiDiffSnapshot {
+    key: string;
+    name: string;
+    method: string;
+    path: string;
+    description?: string | null;
+    level?: string;
+    is_enabled?: boolean;
+    category_id?: number | null;
+}
+
+export interface ModifiedApiDiff extends ApiDiffSnapshot {
+    field_changes: FieldChange[];
+    request_params: ParamsDiffBlock;
+    response_params: ParamsDiffBlock;
+}
+
+export interface CategoryDiffItem {
+    id: number;
+    name: string;
+    description?: string;
+}
+
+export interface ModifiedCategoryDiff {
+    id: number;
+    field_changes: FieldChange[];
+    base: CategoryDiffItem;
+    compare: CategoryDiffItem;
+}
+
+export interface CompareVersionsSummary {
+    service_changed: boolean;
+    categories_added: number;
+    categories_removed: number;
+    categories_modified: number;
+    apis_added: number;
+    apis_removed: number;
+    apis_modified: number;
+}
+
+export interface CompareVersionsByUuidResponse extends BaseResponse {
+    base_version: string;
+    compare_version: string;
+    service_diff: {
+        field_changes: FieldChange[];
+        base_description: string;
+        compare_description: string;
+    };
+    categories_diff: {
+        added: CategoryDiffItem[];
+        removed: CategoryDiffItem[];
+        modified: ModifiedCategoryDiff[];
+    };
+    apis_diff: {
+        added: ApiDiffSnapshot[];
+        removed: ApiDiffSnapshot[];
+        modified: ModifiedApiDiff[];
+    };
+    summary: CompareVersionsSummary;
+}
+
 export interface ImportOpenapiToNewIterationRequest {
     service_id: number;
     openapi_object: Record<string, any>;

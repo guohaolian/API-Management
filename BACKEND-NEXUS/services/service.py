@@ -33,6 +33,7 @@ from database.models import (
 from services.utils import checkServiceIterationPermission, openapiTemplate
 # OpenAPI 导入实现（封装好的函数）
 from services.openapi_import import import_openapi_to_iteration
+from services.version_diff import compare_service_versions
 
 
 # 获取全部服务
@@ -821,6 +822,22 @@ def serviceUpdateDescription(
 
 
 # 导出openapi
+def serviceCompareVersionsByUuid(
+    db: Session,
+    service_uuid: str,
+    base_version: str,
+    compare_version: str,
+    user_id: int,
+) -> dict:
+    return compare_service_versions(
+        db=db,
+        service_uuid=service_uuid,
+        base_version=base_version,
+        compare_version=compare_version,
+        user_id=user_id,
+    )
+
+
 def serviceExportOpenapiByUuidAndVersion(
     db: Session, service_uuid: str, version: str, user_id: int
 ) -> dict:
