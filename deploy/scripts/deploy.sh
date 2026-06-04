@@ -66,6 +66,22 @@ resolve_uv() {
   return 1
 }
 
+# pull 前丢弃会阻塞合并的本地噪音（服务器跑过后端/前端常改到这些文件）
+discard_deploy_git_noise() {
+  local line file
+  while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    file=$(echo "$line" | awk '{print $NF}')
+    case "$file" in
+      *__pycache__*|*.pyc|FRONTEND-NEXUS/package-lock.json)
+        if git checkout -- "$file" 2>/dev/null; then
+          echo "  已还原本地改动: $file"
+        fi
+        ;;
+    esac
+  done < <(git status --porcelain 2>/dev/null || true)
+}
+
 echo "==> [1/6] 拉取最新代码 (${DEPLOY_BRANCH})"
 if [ ! -d "$REPO_ROOT/.git" ]; then
   echo "ERROR: $REPO_ROOT 不是 git 仓库。自动部署需要 git pull，请先在服务器 git clone 或 git init 并添加 remote。"
@@ -78,6 +94,7 @@ if [ "${DEPLOY_FORCE_RESET:-}" = "true" ]; then
   git clean -fd
   git reset --hard "origin/${DEPLOY_BRANCH}"
 else
+  discard_deploy_git_noise
   if ! git pull --ff-only origin "$DEPLOY_BRANCH"; then
     echo "ERROR: git pull 失败。若曾在服务器上 scp/手动覆盖代码，请 SSH 登录后执行："
     echo "  cd $REPO_ROOT"
