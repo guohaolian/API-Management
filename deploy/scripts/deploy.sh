@@ -49,6 +49,23 @@ run_nginx_test_reload() {
   fi
 }
 
+# 与 [2/6]、[4/6] 共用：deploy.env 可设 UV_BIN；否则 PATH 或 /root/.local/bin/uv
+resolve_uv() {
+  if [ -n "${UV_BIN:-}" ] && [ -x "$UV_BIN" ]; then
+    echo "$UV_BIN"
+    return 0
+  fi
+  if command -v uv >/dev/null 2>&1; then
+    command -v uv
+    return 0
+  fi
+  if [ -x /root/.local/bin/uv ]; then
+    echo /root/.local/bin/uv
+    return 0
+  fi
+  return 1
+}
+
 echo "==> [1/6] 拉取最新代码 (${DEPLOY_BRANCH})"
 if [ ! -d "$REPO_ROOT/.git" ]; then
   echo "ERROR: $REPO_ROOT 不是 git 仓库。自动部署需要 git pull，请先在服务器 git clone 或 git init 并添加 remote。"
@@ -72,17 +89,12 @@ fi
 
 echo "==> [2/6] 后端依赖 (uv sync)"
 cd "$BACKEND_DIR"
-UV_BIN="${UV_BIN:-}"
-if [ -n "$UV_BIN" ] && [ -x "$UV_BIN" ]; then
-  "$UV_BIN" sync
-elif command -v uv >/dev/null 2>&1; then
-  uv sync
-elif [ -x /root/.local/bin/uv ]; then
-  /root/.local/bin/uv sync
-else
-  echo "ERROR: 未找到 uv，请设置 UV_BIN 或安装 uv（见 DEPLOY-ALIYUN.md）"
+UV_CMD="$(resolve_uv)" || {
+  echo "ERROR: 未找到 uv，请在 deploy/aliyun/deploy.env 设置 UV_BIN=/root/.local/bin/uv（见 DEPLOY-ALIYUN.md）"
   exit 1
-fi
+}
+echo "使用 uv: $UV_CMD"
+"$UV_CMD" sync
 
 echo "==> [3/6] 前端构建并发布到 ${NGINX_WEB_ROOT}"
 cd "$FRONTEND_DIR"
@@ -118,13 +130,14 @@ cp -r "$FRONTEND_DIST"/* "$NGINX_WEB_ROOT"/
 echo "==> [4/6] 数据库迁移（可选）"
 cd "$BACKEND_DIR"
 if [ "${RUN_DB_MIGRATE:-false}" = "true" ] && [ -f alembic.ini ]; then
-  if [ -n "$UV_BIN" ] && [ -x "$UV_BIN" ]; then
-    "$UV_BIN" run alembic upgrade head
-  else
-    uv run alembic upgrade head
-  fi
+  UV_CMD="$(resolve_uv)" || {
+    echo "ERROR: 未找到 uv，无法执行 alembic。请在 deploy.env 设置 UV_BIN=/root/.local/bin/uv"
+    exit 1
+  }
+  echo "使用 uv: $UV_CMD"
+  "$UV_CMD" run alembic upgrade head
 else
-  echo "跳过迁移（RUN_DB_MIGRATE=true 且存在 alembic.ini 时启用）"
+  echo "跳过迁移（需 RUN_DB_MIGRATE=true 且存在 alembic.ini）"
 fi
 
 echo "==> [5/6] 重启后端: ${SYSTEMD_UNIT}"
