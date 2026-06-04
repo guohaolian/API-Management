@@ -193,5 +193,6 @@ nexus update
 - 产品说明（PRD）：[docs/PRD.md](docs/PRD.md)（迭代审批见 PRD [§6.7](docs/PRD.md#67-迭代审批与变更审计可选)）
 - 阿里云部署（含自动更新）：[docs/DEPLOY-ALIYUN.md](docs/DEPLOY-ALIYUN.md) 第 14 节
 - GitHub Actions 补充说明：[docs/GITHUB-ACTIONS-DEPLOY.md](docs/GITHUB-ACTIONS-DEPLOY.md)
+- 服务器 `git pull` 失败（手动上传后）：[docs/DEPLOY-SERVER-GIT.md](docs/DEPLOY-SERVER-GIT.md)
 - 后端说明：见 [BACKEND-NEXUS/README.md](BACKEND-NEXUS/README.md)
 - 生成器说明：见 [nexus-api-codegen/README.md](nexus-api-codegen/README.md)

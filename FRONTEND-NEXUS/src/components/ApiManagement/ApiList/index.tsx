@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Tree, Input, Button, IconDelete } from "@cloud-materials/common";
 
 import styles from "../index.module.less";
-import { inIterationWarning } from "@/utils";
+import { confirmAction, inIterationWarning } from "@/utils";
 import { CloseIconCAM, OpenIconCAM } from "@/assets/icons";
 
 const { Search } = Input;

@@ -5,6 +5,12 @@ node_modules
 dist
 .venv
 
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+
 .vscode
 .idea
 future.txt
@@ -14,5 +20,5 @@ DEPLOY-ALIYUN.md
 deploy/aliyun/deploy.env
 
 GITHUB-ACTIONS-DEPLOY.md
-
+DEPLOY-SERVER-GIT.md
 migrations

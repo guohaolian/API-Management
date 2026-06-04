@@ -647,18 +647,20 @@ export const useThisService = (service_uuid: string) => {
         if ("service_uuid" in serviceDetail && "owner_id" in serviceDetail) {
             return serviceDetail as ServiceDetail;
         }
-        const nested = (serviceDetail as ServiceIterationDetail).service;
-        if (nested) {
-            return {
-                ...nested,
-                id: nested.id,
-                owner_id: nested.owner_id,
-                requires_iteration_approval:
-                    nested.requires_iteration_approval,
-            } as ServiceDetail;
-        }
-        return serviceDetail as ServiceDetail;
-    }, [serviceDetail]);
+        const iter = serviceDetail as ServiceIterationDetail;
+        const nested = iter.service;
+        return {
+            id: nested?.id ?? iter.service_id,
+            owner_id: nested?.owner_id ?? 0,
+            service_uuid: nested?.service_uuid ?? service_uuid,
+            version: nested?.version ?? iter.version ?? "",
+            description: nested?.description ?? iter.description,
+            created_at: nested?.created_at ?? "",
+            is_deleted: nested?.is_deleted ?? false,
+            requires_iteration_approval:
+                nested?.requires_iteration_approval ?? false,
+        };
+    }, [serviceDetail, service_uuid]);
 
     const serviceId = serviceMeta.id;
     const requiresIterationApproval =

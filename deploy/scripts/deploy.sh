@@ -56,7 +56,19 @@ if [ ! -d "$REPO_ROOT/.git" ]; then
 fi
 git fetch origin "$DEPLOY_BRANCH"
 git checkout "$DEPLOY_BRANCH"
-git pull --ff-only origin "$DEPLOY_BRANCH"
+if [ "${DEPLOY_FORCE_RESET:-}" = "true" ]; then
+  echo "WARN: DEPLOY_FORCE_RESET=true — 丢弃仓库内所有未提交改动与未跟踪文件（deploy.env 等在 .gitignore 中，会保留）"
+  git clean -fd
+  git reset --hard "origin/${DEPLOY_BRANCH}"
+else
+  if ! git pull --ff-only origin "$DEPLOY_BRANCH"; then
+    echo "ERROR: git pull 失败。若曾在服务器上 scp/手动覆盖代码，请 SSH 登录后执行："
+    echo "  cd $REPO_ROOT"
+    echo "  DEPLOY_FORCE_RESET=true bash deploy/scripts/deploy.sh"
+    echo "或见 docs/DEPLOY-SERVER-GIT.md"
+    exit 1
+  fi
+fi
 
 echo "==> [2/6] 后端依赖 (uv sync)"
 cd "$BACKEND_DIR"
