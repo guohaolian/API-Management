@@ -25,6 +25,15 @@ from database.database import session
 from services.user import userGetUserIdByAccessToken
 # 导入 service 层的业务函数（本文件作为路由适配层使用）
 from services.service import *  # type: ignore
+from services.iteration_approval import (
+    serviceSubmitIterationForApproval,
+    serviceApproveIteration,
+    serviceRejectIteration,
+    serviceGetPendingIterations,
+    serviceGetIterationAuditLog,
+    serviceGetIterationChangePreview,
+    serviceUpdateServiceApprovalSetting,
+)
 
 
 # 创建子路由实例，前缀为 /v1/service
@@ -447,6 +456,151 @@ def importOpenapiToNewIteration(request: Request):
             db=db,
             service_id=int(service_id),
             openapi_object=openapi_object,
+            user_id=user_id,
+        )
+    return res
+
+
+# ---- 迭代审批与变更审计 ----
+@serviceRouterV1.post("/submitIterationForApproval", auth_required=True)
+def submitIterationForApproval(request: Request):
+    data = request.json()
+    service_iteration_id = data.get("service_iteration_id")
+    new_version = data.get("new_version")
+    if service_iteration_id is None or not new_version:
+        return Response(
+            status_code=400,
+            description="service_iteration_id and new_version are required",
+            headers={},
+        )
+    user_id = userGetUserIdByAccessToken(request=request)
+    with session() as db:
+        res = serviceSubmitIterationForApproval(
+            db=db,
+            service_iteration_id=int(service_iteration_id),
+            new_version=new_version,
+            user_id=user_id,
+        )
+    return res
+
+
+@serviceRouterV1.post("/approveIteration", auth_required=True)
+async def approveIteration(request: Request):
+    data = request.json()
+    service_iteration_id = data.get("service_iteration_id")
+    if service_iteration_id is None:
+        return Response(
+            status_code=400,
+            description="service_iteration_id is required",
+            headers={},
+        )
+    review_comment = data.get("review_comment", "")
+    user_id = userGetUserIdByAccessToken(request=request)
+    with session() as db:
+        res = await serviceApproveIteration(
+            db=db,
+            service_iteration_id=int(service_iteration_id),
+            user_id=user_id,
+            review_comment=review_comment or "",
+        )
+    return res
+
+
+@serviceRouterV1.post("/rejectIteration", auth_required=True)
+def rejectIteration(request: Request):
+    data = request.json()
+    service_iteration_id = data.get("service_iteration_id")
+    review_comment = data.get("review_comment")
+    if service_iteration_id is None or not review_comment:
+        return Response(
+            status_code=400,
+            description="service_iteration_id and review_comment are required",
+            headers={},
+        )
+    user_id = userGetUserIdByAccessToken(request=request)
+    with session() as db:
+        res = serviceRejectIteration(
+            db=db,
+            service_iteration_id=int(service_iteration_id),
+            user_id=user_id,
+            review_comment=review_comment,
+        )
+    return res
+
+
+@serviceRouterV1.get("/getPendingIterations", auth_required=True)
+def getPendingIterations(request: Request):
+    page_size = request.query_params.get("page_size", "20")
+    current_page = request.query_params.get("current_page", "1")
+    user_id = userGetUserIdByAccessToken(request=request)
+    with session() as db:
+        res = serviceGetPendingIterations(
+            db=db,
+            user_id=user_id,
+            page_size=int(page_size) if page_size else 20,
+            current_page=int(current_page) if current_page else 1,
+        )
+    return res
+
+
+@serviceRouterV1.get("/getIterationAuditLog", auth_required=True)
+def getIterationAuditLog(request: Request):
+    service_iteration_id = request.query_params.get("service_iteration_id", None)
+    if not service_iteration_id:
+        return Response(
+            status_code=400,
+            description="service_iteration_id is required",
+            headers={},
+        )
+    page_size = request.query_params.get("page_size", "50")
+    current_page = request.query_params.get("current_page", "1")
+    user_id = userGetUserIdByAccessToken(request=request)
+    with session() as db:
+        res = serviceGetIterationAuditLog(
+            db=db,
+            service_iteration_id=int(service_iteration_id),
+            user_id=user_id,
+            page_size=int(page_size) if page_size else 50,
+            current_page=int(current_page) if current_page else 1,
+        )
+    return res
+
+
+@serviceRouterV1.get("/getIterationChangePreview", auth_required=True)
+def getIterationChangePreview(request: Request):
+    service_iteration_id = request.query_params.get("service_iteration_id", None)
+    if not service_iteration_id:
+        return Response(
+            status_code=400,
+            description="service_iteration_id is required",
+            headers={},
+        )
+    user_id = userGetUserIdByAccessToken(request=request)
+    with session() as db:
+        res = serviceGetIterationChangePreview(
+            db=db,
+            service_iteration_id=int(service_iteration_id),
+            user_id=user_id,
+        )
+    return res
+
+
+@serviceRouterV1.post("/updateServiceApprovalSetting", auth_required=True)
+def updateServiceApprovalSetting(request: Request):
+    data = request.json()
+    service_id = data.get("service_id")
+    if service_id is None or "requires_iteration_approval" not in data:
+        return Response(
+            status_code=400,
+            description="service_id and requires_iteration_approval are required",
+            headers={},
+        )
+    user_id = userGetUserIdByAccessToken(request=request)
+    with session() as db:
+        res = serviceUpdateServiceApprovalSetting(
+            db=db,
+            service_id=int(service_id),
+            requires_iteration_approval=bool(data["requires_iteration_approval"]),
             user_id=user_id,
         )
     return res

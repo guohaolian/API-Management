@@ -1,16 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-    Tree,
-    Input,
-    Dropdown,
-    Menu,
-    Button,
-    IconDelete,
-} from "@cloud-materials/common";
+import { Tree, Input, Button, IconDelete } from "@cloud-materials/common";
 
 import styles from "../index.module.less";
-import { confirmAction, inIterationWarning } from "@/utils";
+import { inIterationWarning } from "@/utils";
 import { CloseIconCAM, OpenIconCAM } from "@/assets/icons";
 
 const { Search } = Input;
@@ -38,12 +31,8 @@ function filterApiTreeData(treeData: any[], keyword: string): any[] {
 }
 
 interface ApiListHandlers {
-    handleAddApi: () => void;
-    handleAddCategory: () => void;
     handleUpdateApiCategory: (apiId: number, categoryId: number) => void;
     handleDeleteCategory: (categoryId: number) => void;
-    handleStartIteration: () => void;
-    handleCompleteIteration: () => void;
 }
 
 interface ApiListProps {
@@ -59,14 +48,7 @@ const ApiList: React.FC<ApiListProps> = (props) => {
     const { inIteration, isLatest, treeData, handlers, setSelectedApiId } =
         props;
 
-    const {
-        handleAddApi,
-        handleAddCategory,
-        handleUpdateApiCategory,
-        handleDeleteCategory,
-        handleStartIteration,
-        handleCompleteIteration,
-    } = handlers;
+    const { handleUpdateApiCategory, handleDeleteCategory } = handlers;
 
     const [searchKeyword, setSearchKeyword] = useState("");
 
@@ -136,22 +118,6 @@ const ApiList: React.FC<ApiListProps> = (props) => {
     const handleToggleAllCategories = () => {
         setExpandedKeys(anyCategoryExpanded ? [] : categoryKeys);
     };
-
-    const otherOperations = (
-        <Menu style={{ width: 100 }}>
-            <Menu.Item key="1" onClick={handleAddCategory}>
-                {t("apiManagement.addCategory")}
-            </Menu.Item>
-        </Menu>
-    );
-
-    const inIterationOperations = (
-        <Menu style={{ width: 100 }}>
-            <Menu.Item key="1" onClick={handleAddApi}>
-                {t("apiManagement.createApi")}
-            </Menu.Item>
-        </Menu>
-    );
 
     const handleSelectApi = (keys: string[]) => {
         inIterationWarning(
@@ -256,35 +222,6 @@ const ApiList: React.FC<ApiListProps> = (props) => {
                         />
                     }
                 />
-                {inIteration ? (
-                    <Dropdown.Button
-                        type="outline"
-                        droplist={inIterationOperations}
-                        position="bl"
-                        trigger="click"
-                        onClick={handleCompleteIteration}
-                    >
-                        {t("iteration.complete")}
-                    </Dropdown.Button>
-                ) : (
-                    isLatest && (
-                        <Dropdown.Button
-                            type="outline"
-                            droplist={otherOperations}
-                            position="bl"
-                            trigger="click"
-                            onClick={() =>
-                                confirmAction(
-                                    handleStartIteration,
-                                    "action.startIteration",
-                                    "confirm.startIteration",
-                                )
-                            }
-                        >
-                            {t("iteration.start")}
-                        </Dropdown.Button>
-                    )
-                )}
             </div>
 
             {/* autoExpandParent只有在Tree初次挂载时生效，所以要在treeData计算完成后再渲染 */}

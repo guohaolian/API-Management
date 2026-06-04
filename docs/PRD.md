@@ -25,6 +25,8 @@ NEXUS 试图把“接口定义”从附属产物变成核心资产：把 Service
 - 用户：注册、登录、JWT 鉴权、获取个人信息、修改密码
 - Service：创建、查询、分页列表、软删除与恢复、按 `service_uuid + version` 拉取、版本列表
 - 迭代：发起迭代、迭代内编辑 service 描述、提交迭代并更新版本、删除迭代记录
+- 迭代审批（可选）：按服务开关、Owner 审批、待审列表、驳回后继续编辑、Owner/L0 直接发布
+- 变更审计：迭代内 API 增删改与关键里程碑写入审计时间线，支持相对基线版本的变更预览
 - API：分类管理、按分类获取 API 列表、查询 API 详情（含参数树）
 - 迭代内 API 草稿：新增、删除、更新（同时更新请求/响应参数草稿）
 - OpenAPI 导出：按 `service_uuid + version` 导出 OpenAPI JSON
@@ -36,8 +38,8 @@ NEXUS 试图把“接口定义”从附属产物变成核心资产：把 Service
 
 - OpenAPI/Swagger/Thrift 文件导入（当前未落地；仅支持 OpenAPI 导出和导入）
 - 在线 Mock、在线测试台、自动化测试用例生成
-- 多人协作与 maintainer 权限体系（当前以 owner 为主）
-- 复杂的差异对比 UI（diff）与变更审计流
+- 更细粒度的 maintainer 协作策略（当前 maintainer 可维护服务，审批权仅在 Owner）
+- 跨服务/组织级审批流、多级审批、会签
 
 ## 4. 用户画像与使用场景
 
@@ -90,6 +92,12 @@ NEXUS 试图把“接口定义”从附属产物变成核心资产：把 Service
 - 所有编辑都发生在草稿层（ApiDraft/ParamDraft）
 - 提交迭代后，把草稿写回正式表（Api/Param），并更新 Service 版本号
 
+迭代审批相关字段（服务级 + 迭代级）：
+
+- 服务 `requires_iteration_approval`：默认 `false`；仅 **Owner** 可在服务详情 Header 开启/关闭
+- 迭代 `approval_status`：`draft` → `pending` → `committed`；驳回后为 `rejected`，可在**同一迭代**继续编辑并再次提交
+- 迭代 `proposed_version`：提交审批时填写的目标版本号；Owner 通过审批后按该版本发布
+
 ### 5.3 API 与参数
 
 - API 的唯一性：同一 Service 内，`method + path`、`method + name` 需要保持唯一
@@ -120,9 +128,9 @@ NEXUS 试图把“接口定义”从附属产物变成核心资产：把 Service
 - 更新 service 描述（作用于草稿上下文）
 - 新增/删除/编辑 API（编辑时同时维护请求/响应参数树）
 
-3) 提交迭代
-- 输入 `new_version`
-- 系统把草稿同步到正式表，并更新 Service 最新版本号
+3) 提交迭代（两种路径，见 [6.7](#67-迭代审批与变更审计可选)）
+- **未开启审批**：Header 主按钮「完成迭代」，输入 `new_version` 后直接 `commitIteration`
+- **已开启审批**：提交人 Header 主按钮「提交审批」；Owner 在待审列表通过/驳回，或在 Header 使用「直接发布」（二次确认，跳过待审）
 
 ### 6.4 TS 调用代码自动生成
 
@@ -157,8 +165,46 @@ CLI 使用流程：
 
 当前实现：
 
-- 入口：服务详情页发起迭代状态点击右上角按钮「导入 OpenAPI」
-- 行为：前端调用后端导入接口获取 
+- 入口：服务详情页迭代中，Header「导入 OpenAPI」
+- 行为：前端上传 OpenAPI JSON，调用 `importOpenapiToIteration`（当前迭代）或 `importOpenapiToNewIteration`（新建迭代）写入草稿
+
+### 6.7 迭代审批与变更审计（可选）
+
+按服务粒度开启。默认关闭，行为与改造前一致（「完成迭代」直接发布）。
+
+#### 开关与角色
+
+| 项 | 说明 |
+|---|---|
+| 开关 | 服务详情 Header「迭代需审批」，仅 **Owner** 可改 |
+| 提交人 | 有迭代权限的用户（Owner / 维护者 / L0 等，与现有迭代权限一致） |
+| 审批人 | **仅 Owner**（L0 可通过/驳回） |
+| 直接发布 | 开启审批后，**Owner** 仍可在 Header 下拉选择「直接发布」（`commitIteration`，二次确认） |
+
+#### 状态与界面
+
+| `approval_status` | 用户可见 | 编辑 |
+|---|---|---|
+| `draft` / `rejected` | 正常迭代编辑 | 允许（接口信息、请求/响应参数） |
+| `pending` | 左侧 Alert + Header「待审批」（禁用） | **只读**（含参数表、响应状态码 Tab） |
+| `committed` | 已发布，退出迭代工作区 | — |
+
+- **待审列表**：左侧导航 `/approvals`，Owner 查看本人服务的 `pending` 迭代，支持变更预览、通过、驳回（驳回须填写意见）
+- **变更预览**：相对迭代 `base_version` 与当前草稿的 Service/API/参数树 diff（与版本对比能力复用）
+- **审计时间线**：迭代中 Header「变更审计」，记录 `iteration_started`、API 增删改、`submitted_for_approval`、`approved`、`rejected`、`committed` 等事件
+
+#### 典型流程
+
+1. Owner 开启「迭代需审批」
+2. 成员「开始迭代」→ 编辑草稿 → Header「提交审批」并填写 `new_version`
+3. Owner 在 `/approvals` 预览变更 → **通过**（按 `proposed_version` 发布）或 **驳回**（提交人同一迭代内修改后再次提交）
+4. 若 Owner 自行改完：Header 主按钮「提交审批」，下拉「直接发布」
+
+#### 数据与迁移
+
+- 表：`service.requires_iteration_approval`；`service_iteration` 审批字段；`iteration_audit_log`
+- 迁移：Alembic revision `20250604_001` 或备用手工脚本 [migrations/20250604_iteration_approval.sql](migrations/20250604_iteration_approval.sql)（详见 [BACKEND-NEXUS/README.md](../BACKEND-NEXUS/README.md) 数据库迁移一节）
+
 ## 7. 新颖之处（差异化点）
 
 ### 7.1 “迭代即工作区”：把 API 变更过程产品化
@@ -280,7 +326,14 @@ CLI 使用流程：
 - `POST /deleteIterationById`
 - `GET /getIterationById`
 - `POST /startIteration`
-- `POST /commitIteration`
+- `POST /commitIteration`（未走审批或 Owner/L0 直接发布）
+- `POST /submitIterationForApproval`
+- `POST /approveIteration`
+- `POST /rejectIteration`
+- `GET /getPendingIterations`
+- `GET /getIterationAuditLog`
+- `GET /getIterationChangePreview`
+- `POST /updateServiceApprovalSetting`
 - `POST /updateDescription`
 - `GET /exportOpenapiByUuidAndVersion`
 - `POST /importOpenapiToIteration`
@@ -326,6 +379,7 @@ CLI 使用流程：
 
 ### 11.2 规划方向（与现有设计一致）
 
-- 版本差异对比（Service/API/参数树 diff）已实现
-- 迭代审批/变更审计
-- 团队协作（maintainer、成员权限、跨服务访问策略）
+- 版本差异对比（Service/API/参数树 diff）——已实现
+- 迭代审批与变更审计——已实现（见 [6.7](#67-迭代审批与变更审计可选)）
+- 团队协作增强（更细的 maintainer 权限、跨服务访问策略）
+- 审批流扩展（多级审批、会签、非 Owner 审批人）

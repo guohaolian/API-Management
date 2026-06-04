@@ -6,6 +6,12 @@ export interface BaseResponse {
     message: string;
 }
 
+export type IterationApprovalStatus =
+    | "draft"
+    | "pending"
+    | "rejected"
+    | "committed";
+
 export interface ServiceItem {
     id: number;
     service_uuid: string;
@@ -14,6 +20,7 @@ export interface ServiceItem {
     owner_id: number;
     created_at: string;
     is_deleted: boolean;
+    requires_iteration_approval?: boolean;
     owner?: UserProfile | null;
 }
 
@@ -48,6 +55,13 @@ export interface ServiceIteration {
     description?: string | null;
     is_committed: boolean;
     created_at?: string;
+    base_version?: string | null;
+    approval_status?: IterationApprovalStatus;
+    proposed_version?: string | null;
+    submitted_at?: string | null;
+    review_comment?: string | null;
+    submitted_by?: UserProfile | null;
+    reviewed_by?: UserProfile | null;
 }
 
 export interface ServiceDetail extends ServiceItem {
@@ -286,6 +300,73 @@ export interface ImportOpenapiToIterationRequest {
 }
 
 export type ImportOpenapiToIterationResponse = ImportOpenapiToNewIterationResponse;
+
+export interface SubmitIterationForApprovalRequest {
+    service_iteration_id: number;
+    new_version: string;
+}
+
+export type SubmitIterationForApprovalResponse = BaseResponse & {
+    service_iteration_id: number;
+    approval_status: IterationApprovalStatus;
+};
+
+export interface ApproveIterationRequest {
+    service_iteration_id: number;
+    review_comment?: string;
+}
+
+export type ApproveIterationResponse = CommitIterationResponse;
+
+export interface RejectIterationRequest {
+    service_iteration_id: number;
+    review_comment: string;
+}
+
+export type RejectIterationResponse = BaseResponse & {
+    service_iteration_id: number;
+    approval_status: IterationApprovalStatus;
+};
+
+export interface PendingIterationItem {
+    service_iteration_id: number;
+    service_id: number;
+    service_uuid: string;
+    base_version: string;
+    proposed_version: string;
+    submitted_at: string | null;
+    submitted_by: UserProfile | null;
+    creator: UserProfile | null;
+}
+
+export interface GetPendingIterationsResponse extends BaseResponse {
+    iterations: PendingIterationItem[];
+    total: number;
+}
+
+export interface IterationAuditLogItem {
+    id: number;
+    action: string;
+    summary: Record<string, unknown> | string | null;
+    created_at: string | null;
+    user: UserProfile | null;
+}
+
+export interface GetIterationAuditLogResponse extends BaseResponse {
+    logs: IterationAuditLogItem[];
+    total: number;
+}
+
+export type GetIterationChangePreviewResponse = CompareVersionsByUuidResponse;
+
+export interface UpdateServiceApprovalSettingRequest {
+    service_id: number;
+    requires_iteration_approval: boolean;
+}
+
+export interface UpdateServiceApprovalSettingResponse extends BaseResponse {
+    requires_iteration_approval: boolean;
+}
 
 export type ServiceRange =
     | "MyServices"

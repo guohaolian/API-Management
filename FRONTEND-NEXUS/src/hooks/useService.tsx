@@ -27,7 +27,10 @@ import {
     IsServiceMaintainer,
     RestoreServiceById,
     StartIteration,
+    SubmitIterationForApproval,
+    UpdateServiceApprovalSetting,
 } from "@/services/service";
+import { useUser } from "@/hooks/useUser";
 import type {
     ApiBrief,
     ApiCategory,
@@ -307,6 +310,7 @@ export const useService = () => {
 // 某个服务hook
 export const useThisService = (service_uuid: string) => {
     const navigate = useNavigate();
+    const { user } = useUser();
 
     const [loading, setLoading] = useState(false);
     const [versions, setVersions] = useState<
@@ -639,75 +643,190 @@ export const useThisService = (service_uuid: string) => {
         }
     }, [serviceDetail.id, currentVersion, fetchServiceDetail]);
 
-    const handleCompleteIteration = useCallback(async () => {
-        let serverLatestVersion = currentVersion;
-        try {
-            const res = await GetAllVersionsByUuid(service_uuid);
-            if (res.status === 200 && res.versions?.[0]?.version) {
-                serverLatestVersion = res.versions[0].version;
-            }
-        } catch {
-            // 获取失败时回退到本地缓存的版本号
+    const serviceMeta = useMemo((): ServiceDetail => {
+        if ("service_uuid" in serviceDetail && "owner_id" in serviceDetail) {
+            return serviceDetail as ServiceDetail;
         }
+        const nested = (serviceDetail as ServiceIterationDetail).service;
+        if (nested) {
+            return {
+                ...nested,
+                id: nested.id,
+                owner_id: nested.owner_id,
+                requires_iteration_approval:
+                    nested.requires_iteration_approval,
+            } as ServiceDetail;
+        }
+        return serviceDetail as ServiceDetail;
+    }, [serviceDetail]);
 
-        const suggestedFromLocal = incrementVersion(currentVersion);
-        const hasVersionConflict =
-            !!suggestedFromLocal && suggestedFromLocal === serverLatestVersion;
+    const serviceId = serviceMeta.id;
+    const requiresIterationApproval =
+        !!serviceMeta.requires_iteration_approval;
+    const isServiceOwner =
+        serviceMeta.owner_id === user?.id || user?.level === 0;
 
-        const modal = CModal.openArcoForm({
-            title: t("iteration.complete"),
-            content: (
-                <CompleteIterationForm
-                    currentVersion={
-                        hasVersionConflict
-                            ? serverLatestVersion
-                            : currentVersion
-                    }
-                    initialNewVersion={
-                        hasVersionConflict
-                            ? incrementVersion(serverLatestVersion)
-                            : suggestedFromLocal
-                    }
-                    versionConflict={hasVersionConflict}
-                    conflictServerVersion={
-                        hasVersionConflict ? serverLatestVersion : undefined
-                    }
-                />
-            ),
-            cancelText: t("common.cancel"),
-            okText: t("common.ok"),
-            onOk: async (values, form) => {
+    const runCompleteIterationForm = useCallback(
+        (
+            mode: "commit" | "submit",
+            titleKey: string,
+            successToastKey: string,
+            failToastKey: string,
+        ) => {
+            let serverLatestVersion = currentVersion;
+            const openForm = async () => {
                 try {
-                    await form.validate();
-                    const res = await CommitIteration({
-                        service_iteration_id: iterationId,
-                        new_version: values.new_version,
-                    });
-                    if (res.status !== 200) {
-                        throw new Error(res.message || "迭代提交失败");
+                    const res = await GetAllVersionsByUuid(service_uuid);
+                    if (res.status === 200 && res.versions?.[0]?.version) {
+                        serverLatestVersion = res.versions[0].version;
                     }
-                    Message.success(
-                        resolveApiMessage(
-                            res.message,
-                            "toast.commitIterationSuccess",
-                        ),
-                    );
-                    // 显式关闭弹窗，避免依赖隐式行为
-                    modal.close();
-                    // 刷新
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 500);
-                } catch (err: unknown) {
-                    Message.warning(
-                        toastFromError(err, "toast.commitIterationFailed"),
-                    );
-                    // 抛出错误以阻止弹窗自动关闭（库内有相关处理）
-                    throw err;
+                } catch {
+                    /* use local version */
                 }
-            },
+
+                const suggestedFromLocal = incrementVersion(currentVersion);
+                const hasVersionConflict =
+                    !!suggestedFromLocal &&
+                    suggestedFromLocal === serverLatestVersion;
+
+                const modal = CModal.openArcoForm({
+                    title: t(titleKey),
+                    content: (
+                        <CompleteIterationForm
+                            currentVersion={
+                                hasVersionConflict
+                                    ? serverLatestVersion
+                                    : currentVersion
+                            }
+                            initialNewVersion={
+                                hasVersionConflict
+                                    ? incrementVersion(serverLatestVersion)
+                                    : suggestedFromLocal
+                            }
+                            versionConflict={hasVersionConflict}
+                            conflictServerVersion={
+                                hasVersionConflict
+                                    ? serverLatestVersion
+                                    : undefined
+                            }
+                        />
+                    ),
+                    cancelText: t("common.cancel"),
+                    okText: t("common.ok"),
+                    onOk: async (values, form) => {
+                        try {
+                            await form.validate();
+                            const payload = {
+                                service_iteration_id: iterationId,
+                                new_version: values.new_version,
+                            };
+                            const res =
+                                mode === "submit"
+                                    ? await SubmitIterationForApproval(payload)
+                                    : await CommitIteration(payload);
+                            if (res.status !== 200) {
+                                throw new Error(res.message);
+                            }
+                            Message.success(
+                                resolveApiMessage(res.message, successToastKey),
+                            );
+                            modal.close();
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 500);
+                        } catch (err: unknown) {
+                            Message.warning(toastFromError(err, failToastKey));
+                            throw err;
+                        }
+                    },
+                });
+            };
+            return openForm();
+        },
+        [iterationId, currentVersion, service_uuid],
+    );
+
+    const handleSubmitForApproval = useCallback(async () => {
+        await runCompleteIterationForm(
+            "submit",
+            "approval.submitTitle",
+            "approval.submitSuccess",
+            "approval.submitFailed",
+        );
+    }, [runCompleteIterationForm]);
+
+    const handleDirectPublish = useCallback(async () => {
+        CModal.confirm({
+            title: t("approval.directPublishConfirmTitle"),
+            content: t("approval.directPublishConfirmContent"),
+            okText: t("approval.directPublish"),
+            cancelText: t("common.cancel"),
+            onOk: () =>
+                runCompleteIterationForm(
+                    "commit",
+                    "iteration.complete",
+                    "toast.commitIterationSuccess",
+                    "toast.commitIterationFailed",
+                ),
         });
-    }, [iterationId, currentVersion, service_uuid]);
+    }, [runCompleteIterationForm]);
+
+    const handleCompleteIteration = useCallback(async () => {
+        if (requiresIterationApproval) {
+            await handleSubmitForApproval();
+            return;
+        }
+        await runCompleteIterationForm(
+            "commit",
+            "iteration.complete",
+            "toast.commitIterationSuccess",
+            "toast.commitIterationFailed",
+        );
+    }, [
+        requiresIterationApproval,
+        handleSubmitForApproval,
+        runCompleteIterationForm,
+    ]);
+
+    const handleUpdateApprovalSetting = useCallback(
+        async (enabled: boolean) => {
+            if (!serviceId) return false;
+            try {
+                const res = await UpdateServiceApprovalSetting({
+                    service_id: serviceId,
+                    requires_iteration_approval: enabled,
+                });
+                if (res.status !== 200) {
+                    throw new Error(res.message);
+                }
+                setServiceDetail((prev) => {
+                    if ("requires_iteration_approval" in prev) {
+                        return { ...prev, requires_iteration_approval: enabled };
+                    }
+                    if ("service" in prev && prev.service) {
+                        return {
+                            ...prev,
+                            service: {
+                                ...prev.service,
+                                requires_iteration_approval: enabled,
+                            },
+                        };
+                    }
+                    return prev;
+                });
+                Message.success(
+                    resolveApiMessage(res.message, "approval.settingSuccess"),
+                );
+                return true;
+            } catch (err: unknown) {
+                Message.warning(
+                    toastFromError(err, "approval.settingFailed"),
+                );
+                return false;
+            }
+        },
+        [serviceId],
+    );
 
     const exitIteration = () => {
         setInIteration(false);
@@ -735,7 +854,12 @@ export const useThisService = (service_uuid: string) => {
         setInIteration,
         handleStartIteration,
         handleCompleteIteration,
+        handleSubmitForApproval,
+        handleDirectPublish,
         exitIteration,
+        requiresIterationApproval,
+        isServiceOwner,
+        handleUpdateApprovalSetting,
     };
 };
 
@@ -947,11 +1071,16 @@ export const useServiceIteration = (
         [iterationId, fetchIterationDetail],
     );
 
+    const iterationApprovalStatus = iterationDetail.approval_status;
+    const iterationReadOnly = iterationApprovalStatus === "pending";
+
     return {
         loading,
         iterationDetail,
         apiDrafts,
         iterationTreeData,
+        iterationApprovalStatus,
+        iterationReadOnly,
         fetchIterationDetail,
         handleAddApi,
         handleCopyApi,

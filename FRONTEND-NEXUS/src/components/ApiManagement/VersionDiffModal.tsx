@@ -14,7 +14,10 @@ import Collapse from "@arco-design/web-react/es/Collapse";
 import Empty from "@arco-design/web-react/es/Empty";
 import type { HttpMethod } from "@/services/api/types";
 import { useTranslation } from "react-i18next";
-import { CompareVersionsByUuid } from "@/services/service";
+import {
+    CompareVersionsByUuid,
+    GetIterationChangePreview,
+} from "@/services/service";
 import type {
     CompareVersionsByUuidResponse,
     FieldChange,
@@ -33,6 +36,8 @@ interface VersionDiffModalProps {
     versions: { version: string; is_latest: boolean }[];
     currentVersion: string;
     onClose: () => void;
+    /** 迭代变更预览：传入后自动拉取草稿 vs 基线 diff，隐藏版本选择器 */
+    serviceIterationId?: number;
 }
 
 const fieldChangeColumns = (t: (key: string) => string) => [
@@ -147,8 +152,12 @@ const VersionDiffModal: React.FC<VersionDiffModalProps> = ({
     versions,
     currentVersion,
     onClose,
+    serviceIterationId,
 }) => {
     const { t } = useTranslation();
+    const iterationPreviewMode =
+        serviceIterationId !== undefined && serviceIterationId > 0;
+
     const versionOptions = useMemo(
         () => versions.filter((v) => v.version).map((v) => v.version),
         [versions],
@@ -176,11 +185,19 @@ const VersionDiffModal: React.FC<VersionDiffModalProps> = ({
     }, [visible, defaultBase, currentVersion]);
 
     const fetchDiff = useCallback(async () => {
-        if (!baseVersion || !compareVersion || baseVersion === compareVersion) {
-            return;
-        }
         setLoading(true);
         try {
+            if (iterationPreviewMode && serviceIterationId) {
+                const res = await GetIterationChangePreview(serviceIterationId);
+                if (res.status !== 200) {
+                    throw new Error(res.message);
+                }
+                setDiff(res);
+                return;
+            }
+            if (!baseVersion || !compareVersion || baseVersion === compareVersion) {
+                return;
+            }
             const res = await CompareVersionsByUuid(
                 serviceUuid,
                 baseVersion,
@@ -196,13 +213,31 @@ const VersionDiffModal: React.FC<VersionDiffModalProps> = ({
         } finally {
             setLoading(false);
         }
-    }, [serviceUuid, baseVersion, compareVersion]);
+    }, [
+        serviceUuid,
+        baseVersion,
+        compareVersion,
+        iterationPreviewMode,
+        serviceIterationId,
+    ]);
 
     useEffect(() => {
-        if (visible && baseVersion && compareVersion && baseVersion !== compareVersion) {
+        if (!visible) return;
+        if (iterationPreviewMode && serviceIterationId) {
+            fetchDiff();
+            return;
+        }
+        if (baseVersion && compareVersion && baseVersion !== compareVersion) {
             fetchDiff();
         }
-    }, [visible, baseVersion, compareVersion, fetchDiff]);
+    }, [
+        visible,
+        baseVersion,
+        compareVersion,
+        fetchDiff,
+        iterationPreviewMode,
+        serviceIterationId,
+    ]);
 
     const hasChanges = useMemo(() => {
         if (!diff?.summary) return false;
@@ -220,38 +255,54 @@ const VersionDiffModal: React.FC<VersionDiffModalProps> = ({
 
     return (
         <Modal
-            title={t("versionDiff.title")}
+            title={
+                iterationPreviewMode
+                    ? t("approval.changePreviewTitle")
+                    : t("versionDiff.title")
+            }
             visible={visible}
             onCancel={onClose}
             footer={null}
             style={{ width: 920, maxWidth: "95vw" }}
             unmountOnExit
         >
-            <Space wrap style={{ marginBottom: 16 }}>
-                <span>
-                    <Text type="secondary">{t("versionDiff.baseVersion")}: </Text>
-                    <Select
-                        style={{ width: 140 }}
-                        value={baseVersion}
-                        onChange={setBaseVersion}
-                        options={versionOptions.map((v) => ({ label: v, value: v }))}
-                    />
-                </span>
-                <span>
-                    <Text type="secondary">{t("versionDiff.compareVersion")}: </Text>
-                    <Select
-                        style={{ width: 140 }}
-                        value={compareVersion}
-                        onChange={setCompareVersion}
-                        options={versionOptions.map((v) => ({ label: v, value: v }))}
-                    />
-                </span>
-                <Button type="primary" loading={loading} onClick={fetchDiff}>
-                    {t("versionDiff.refresh")}
-                </Button>
-            </Space>
+            {!iterationPreviewMode && (
+                <Space wrap style={{ marginBottom: 16 }}>
+                    <span>
+                        <Text type="secondary">
+                            {t("versionDiff.baseVersion")}:{" "}
+                        </Text>
+                        <Select
+                            style={{ width: 140 }}
+                            value={baseVersion}
+                            onChange={setBaseVersion}
+                            options={versionOptions.map((v) => ({
+                                label: v,
+                                value: v,
+                            }))}
+                        />
+                    </span>
+                    <span>
+                        <Text type="secondary">
+                            {t("versionDiff.compareVersion")}:{" "}
+                        </Text>
+                        <Select
+                            style={{ width: 140 }}
+                            value={compareVersion}
+                            onChange={setCompareVersion}
+                            options={versionOptions.map((v) => ({
+                                label: v,
+                                value: v,
+                            }))}
+                        />
+                    </span>
+                    <Button type="primary" loading={loading} onClick={fetchDiff}>
+                        {t("versionDiff.refresh")}
+                    </Button>
+                </Space>
+            )}
 
-            {baseVersion === compareVersion && (
+            {!iterationPreviewMode && baseVersion === compareVersion && (
                 <Empty description={t("versionDiff.sameVersionHint")} />
             )}
 
@@ -261,7 +312,9 @@ const VersionDiffModal: React.FC<VersionDiffModalProps> = ({
                 </div>
             )}
 
-            {!loading && diff && baseVersion !== compareVersion && (
+            {!loading &&
+                diff &&
+                (iterationPreviewMode || baseVersion !== compareVersion) && (
                 <>
                     <Space wrap style={{ marginBottom: 16 }}>
                         <Tag>

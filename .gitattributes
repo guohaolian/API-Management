@@ -1,0 +1,4 @@
+*.sh text eol=lf
+*.bash text eol=lf
+deploy/scripts/*.sh text eol=lf
+BACKEND-NEXUS/database/db-migrate.sh text eol=lf

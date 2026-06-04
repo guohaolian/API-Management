@@ -433,3 +433,94 @@ def compare_service_versions(
         "apis_diff": apis_diff,
         "summary": summary,
     }
+
+
+def _load_base_snapshot_for_iteration(
+    db: Session, curr_service: Service, base_version: str
+) -> Dict[str, Any] | None:
+    """加载迭代基线版本快照；找不到时返回 None。"""
+    if curr_service.version == base_version:
+        return _load_version_snapshot(db, curr_service, curr_service, True)
+
+    entity = (
+        db.query(ServiceIteration)
+        .filter(
+            ServiceIteration.service_id == curr_service.id,
+            ServiceIteration.version == base_version,
+            ServiceIteration.is_committed == True,  # noqa: E712
+        )
+        .first()
+    )
+    if not entity:
+        return None
+    return _load_version_snapshot(db, curr_service, entity, False)
+
+
+def _load_draft_snapshot(
+    db: Session, curr_service: Service, iteration: ServiceIteration
+) -> Dict[str, Any]:
+    return {
+        "version": iteration.proposed_version or "(draft)",
+        "description": iteration.description or "",
+        "categories": [
+            {"id": c.id, "name": c.name, "description": c.description or ""}
+            for c in db.query(ApiCategory)
+            .filter(ApiCategory.service_id == curr_service.id)
+            .order_by(ApiCategory.id)
+            .all()
+        ],
+        "apis": [_build_api_snapshot(api) for api in list(iteration.api_drafts)],
+    }
+
+
+def compare_iteration_change_preview(
+    db: Session, iteration: ServiceIteration
+) -> dict:
+    """对比迭代基线版本与当前草稿（用于审批预览）。"""
+    curr_service = iteration.service
+    base_version = iteration.base_version or curr_service.version
+    base_snapshot = _load_base_snapshot_for_iteration(db, curr_service, base_version)
+    if not base_snapshot:
+        return {"status": -2, "message": "Base version snapshot not found"}
+
+    compare_snapshot = _load_draft_snapshot(db, curr_service, iteration)
+
+    service_field_changes = []
+    if base_snapshot["description"] != compare_snapshot["description"]:
+        service_field_changes.append(
+            {
+                "field": "description",
+                "old": base_snapshot["description"],
+                "new": compare_snapshot["description"],
+            }
+        )
+
+    categories_diff = _diff_categories(
+        base_snapshot["categories"], compare_snapshot["categories"]
+    )
+    apis_diff = _diff_apis(base_snapshot["apis"], compare_snapshot["apis"])
+
+    summary = {
+        "service_changed": bool(service_field_changes),
+        "categories_added": len(categories_diff["added"]),
+        "categories_removed": len(categories_diff["removed"]),
+        "categories_modified": len(categories_diff["modified"]),
+        "apis_added": len(apis_diff["added"]),
+        "apis_removed": len(apis_diff["removed"]),
+        "apis_modified": len(apis_diff["modified"]),
+    }
+
+    return {
+        "status": 200,
+        "message": "Get iteration change preview success",
+        "base_version": base_snapshot["version"],
+        "compare_version": compare_snapshot["version"],
+        "service_diff": {
+            "field_changes": service_field_changes,
+            "base_description": base_snapshot["description"],
+            "compare_description": compare_snapshot["description"],
+        },
+        "categories_diff": categories_diff,
+        "apis_diff": apis_diff,
+        "summary": summary,
+    }

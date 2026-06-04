@@ -1,6 +1,9 @@
 import React from "react";
 import { Menu, Message } from "@cloud-materials/common";
-import { IconHouseDashboard } from "@cloud-materials/common/ve-o-iconbox";
+import {
+    IconHouseDashboard,
+    IconSchedule,
+} from "@cloud-materials/common/ve-o-iconbox";
 
 import { useNavigate, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -35,10 +38,14 @@ const Sidebar: React.FC = () => {
             ),
             title: t("nav.apiDefinition"),
         },
+        {
+            key: "/approvals",
+            icon: <IconSchedule style={{ width: 18, height: 18 }} />,
+            title: t("nav.pendingApprovals"),
+        },
     ];
 
     const handleMenuClick = (key: string) => {
-        // 不支持直接点击service
         if (key === "/service") {
             Message.warning(t("toast.enterServiceFromHome"));
             return;

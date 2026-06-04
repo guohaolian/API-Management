@@ -27,7 +27,8 @@ from database.models import (
 )
 
 # 导入枚举类型以保证接口层使用受控值（而不是任意字符串）
-from database.enums import ApiLevel, HttpMethod, ParamType, ParamLocation
+from database.enums import ApiLevel, HttpMethod, ParamType, ParamLocation, IterationAuditAction
+from services.iteration_audit import append_iteration_audit
 
 # 辅助函数：权限校验与参数组织器（将 ORM 参数集合转换为前端友好结构）
 from services.utils import (
@@ -573,7 +574,14 @@ def apiAddApi(
         category_id=category_id,
     )
     db.add(api_draft)
-    # 提交以持久化草稿到数据库（commit 后可在返回中安全使用 .toJson()）
+    db.flush()
+    append_iteration_audit(
+        db,
+        service_iteration_id,
+        user_id,
+        IterationAuditAction.API_ADDED,
+        {"api_draft_id": api_draft.id, "method": method, "path": path, "name": name},
+    )
     db.commit()
     return {
         "status": 200,
@@ -762,10 +770,20 @@ def apiDeleteApiByApiDraftId(
         ResponseParamDraft.api_draft_id == api_draft_id
     ).delete(synchronize_session=False)
 
-    # 删除草稿实体本身（此处对 api_draft 实例调用 delete，会在 commit 时发出 DELETE）
+    audit_summary = {
+        "api_draft_id": api_draft_id,
+        "method": getattr(api_draft.method, "value", api_draft.method),
+        "path": api_draft.path,
+        "name": api_draft.name,
+    }
     db.delete(api_draft)
-
-    # 提交事务以使所有删除生效（如果任一删除失败，将回滚，避免不一致）
+    append_iteration_audit(
+        db,
+        service_iteration_id,
+        user_id,
+        IterationAuditAction.API_DELETED,
+        audit_summary,
+    )
     db.commit()
     return {
         "status": 200,
@@ -1025,6 +1043,18 @@ def apiUpdateApiByApiDraftId(
             param_model_class=ResponseParamDraft,
         )
 
+    append_iteration_audit(
+        db,
+        service_iteration_id,
+        user_id,
+        IterationAuditAction.API_UPDATED,
+        {
+            "api_draft_id": api_draft_id,
+            "method": method,
+            "path": path,
+            "name": name,
+        },
+    )
     db.commit()
     return {
         "status": 200,

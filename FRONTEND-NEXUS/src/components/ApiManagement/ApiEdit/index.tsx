@@ -44,12 +44,14 @@ interface ApiEditHandlers {
 interface ApiEditProps {
     loading: boolean;
     apiDetail: ApiDetail | ApiDraftDetail;
+    readOnly?: boolean;
     handlers: ApiEditHandlers;
 }
 
 const ApiEdit: React.FC<ApiEditProps> = ({
     loading,
     apiDetail,
+    readOnly = false,
     handlers: { handleSaveApiDraft, handleCopyApi, handleDeleteApi },
 }) => {
     const { t } = useTranslation();
@@ -82,7 +84,7 @@ const ApiEdit: React.FC<ApiEditProps> = ({
 
     // 提交本次apiDraft改动
     const handleSubmit = async () => {
-        if (rejectSubmit) {
+        if (readOnly || rejectSubmit) {
             return;
         }
         const values = await form.validate();
@@ -177,7 +179,7 @@ const ApiEdit: React.FC<ApiEditProps> = ({
                             status="success"
                             onClick={handleSubmit}
                             loading={editLoading}
-                            disabled={!isDraft || rejectSubmit}
+                            disabled={readOnly || !isDraft || rejectSubmit}
                         >
                             {isDraft
                                 ? t("apiManagement.saveApi")
@@ -186,6 +188,7 @@ const ApiEdit: React.FC<ApiEditProps> = ({
                         <Button
                             type="default"
                             status="default"
+                            disabled={readOnly}
                             onClick={() => handleCopyApi(apiDetail.id)}
                         >
                             {t("apiManagement.copyApi")}
@@ -193,6 +196,7 @@ const ApiEdit: React.FC<ApiEditProps> = ({
                         <Button
                             type="default"
                             status="danger"
+                            disabled={readOnly}
                             onClick={() =>
                                 confirmAction(
                                     () => handleDeleteApi(apiDetail.id),
@@ -211,8 +215,11 @@ const ApiEdit: React.FC<ApiEditProps> = ({
                     layout="vertical"
                     scrollToFirstError
                     initialValues={apiDetail}
+                    disabled={readOnly}
                     onValuesChange={() => {
-                        setIsDraft(true);
+                        if (!readOnly) {
+                            setIsDraft(true);
+                        }
                     }}
                 >
                     <BriefInfoEdit />
@@ -221,9 +228,13 @@ const ApiEdit: React.FC<ApiEditProps> = ({
                         reqParamsActiveTab={reqParamsActiveTab}
                         setReqParamsActiveTab={setReqParamsActiveTab}
                         setRejectSubmit={setRejectSubmit}
+                        readOnly={readOnly}
                     />
                     <Divider />
-                    <ResponseParamsEdit setRejectSubmit={setRejectSubmit} />
+                    <ResponseParamsEdit
+                        setRejectSubmit={setRejectSubmit}
+                        readOnly={readOnly}
+                    />
                 </Form>
             </Spin>
         </div>

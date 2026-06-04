@@ -30,6 +30,17 @@ import type {
     CompareVersionsByUuidResponse,
     ImportOpenapiToIterationRequest,
     ImportOpenapiToIterationResponse,
+    SubmitIterationForApprovalRequest,
+    SubmitIterationForApprovalResponse,
+    ApproveIterationRequest,
+    ApproveIterationResponse,
+    RejectIterationRequest,
+    RejectIterationResponse,
+    GetPendingIterationsResponse,
+    GetIterationAuditLogResponse,
+    GetIterationChangePreviewResponse,
+    UpdateServiceApprovalSettingRequest,
+    UpdateServiceApprovalSettingResponse,
 } from "./types";
 
 const prefix = "/v1/service";
@@ -220,6 +231,65 @@ export const ImportOpenapiToIteration = async (
 ) => {
     return api.post<ImportOpenapiToIterationResponse>(
         `${prefix}/importOpenapiToIteration`,
+        data
+    );
+};
+
+export const SubmitIterationForApproval = async (
+    data: SubmitIterationForApprovalRequest
+) => {
+    return api.post<SubmitIterationForApprovalResponse>(
+        `${prefix}/submitIterationForApproval`,
+        data
+    );
+};
+
+export const ApproveIteration = async (data: ApproveIterationRequest) => {
+    return api.post<ApproveIterationResponse>(
+        `${prefix}/approveIteration`,
+        data
+    );
+};
+
+export const RejectIteration = async (data: RejectIterationRequest) => {
+    return api.post<RejectIterationResponse>(`${prefix}/rejectIteration`, data);
+};
+
+export const GetPendingIterations = async (
+    page_size?: number,
+    current_page?: number
+) => {
+    return api.get<GetPendingIterationsResponse>(
+        `${prefix}/getPendingIterations`,
+        { page_size, current_page }
+    );
+};
+
+export const GetIterationAuditLog = async (
+    service_iteration_id: number,
+    page_size?: number,
+    current_page?: number
+) => {
+    return api.get<GetIterationAuditLogResponse>(
+        `${prefix}/getIterationAuditLog`,
+        { service_iteration_id, page_size, current_page }
+    );
+};
+
+export const GetIterationChangePreview = async (
+    service_iteration_id: number
+) => {
+    return api.get<GetIterationChangePreviewResponse>(
+        `${prefix}/getIterationChangePreview`,
+        { service_iteration_id }
+    );
+};
+
+export const UpdateServiceApprovalSetting = async (
+    data: UpdateServiceApprovalSettingRequest
+) => {
+    return api.post<UpdateServiceApprovalSettingResponse>(
+        `${prefix}/updateServiceApprovalSetting`,
         data
     );
 };

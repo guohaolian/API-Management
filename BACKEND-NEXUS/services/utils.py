@@ -23,7 +23,7 @@ from database.models import (
     ResponseParam,
     ResponseParamDraft,
 )
-from database.enums import ParamLocation, ParamType
+from database.enums import ParamLocation, ParamType, IterationApprovalStatus
 
 
 # service 版本迭代行为权限校验（校验service_iteration是否存在，是否已提交，是否为当前user有权限操作）
@@ -42,13 +42,12 @@ def checkServiceIterationPermission(
                 "message": "Service iteration not found or committed",
             },
         }
-    # 已提交的迭代，不可进行迭代操作；这类请求直接视为非法上下文
-    if service_iteration.is_committed:  # type: ignore
+    if service_iteration.approval_status == IterationApprovalStatus.PENDING:  # type: ignore
         return {
             "is_ok": False,
             "error": {
-                "status": -20,
-                "message": "Service iteration has been committed",
+                "status": -21,
+                "message": "Service iteration is pending approval and cannot be edited",
             },
         }
     # 非 L0 用户只有两类人能改这个迭代：服务 owner 或该迭代 creator

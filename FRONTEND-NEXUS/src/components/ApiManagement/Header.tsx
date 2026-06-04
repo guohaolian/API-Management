@@ -7,11 +7,14 @@ import {
     Button,
     Message,
     Divider,
+    Dropdown,
     IconLoading,
     IconUserGroup,
+    Menu,
     Popover,
     Select,
     Space,
+    Switch,
     Tag,
     Tooltip,
     Typography,
@@ -19,7 +22,7 @@ import {
 
 import styles from "./index.module.less";
 import type { UserProfile, UserRole } from "@/services/user/types";
-import { copyToClipboard, genUserRoleTag, userAvatar } from "@/utils";
+import { confirmAction, copyToClipboard, genUserRoleTag, userAvatar } from "@/utils";
 import { useUser } from "@/hooks/useUser";
 import { useTranslation } from "react-i18next";
 import { toastFromError } from "@/i18n/apiMessage";
@@ -36,6 +39,12 @@ interface HeaderHandlers {
     ) => Promise<boolean>;
     handleExportOpenAPI: () => Promise<Record<string, any> | null>;
     handleImportOpenAPI: (openapiObject: Record<string, any>) => Promise<void>;
+    handleStartIteration: () => void;
+    handleCompleteIteration: () => void;
+    handleSubmitForApproval?: () => void;
+    handleDirectPublish?: () => void;
+    handleAddApi: () => void;
+    handleAddCategory: () => void;
 }
 
 interface HeaderProps {
@@ -47,6 +56,12 @@ interface HeaderProps {
     personInCharge: UserProfile;
     maintainers: UserProfile[];
     inIteration: boolean;
+    iterationReadOnly?: boolean;
+    iterationApprovalStatus?: string;
+    requiresIterationApproval?: boolean;
+    isServiceOwner?: boolean;
+    onUpdateApprovalSetting?: (enabled: boolean) => Promise<boolean>;
+    onOpenAudit?: () => void;
     handlers: HeaderHandlers;
 }
 
@@ -60,6 +75,12 @@ const Header: React.FC<HeaderProps> = (props) => {
         personInCharge,
         maintainers,
         inIteration,
+        iterationReadOnly = false,
+        iterationApprovalStatus,
+        requiresIterationApproval = false,
+        isServiceOwner = false,
+        onUpdateApprovalSetting,
+        onOpenAudit,
         handlers: {
             setCurrentVersion,
             exitIteration,
@@ -67,6 +88,12 @@ const Header: React.FC<HeaderProps> = (props) => {
             handleAddOrRemoveServiceMaintainerById,
             handleExportOpenAPI,
             handleImportOpenAPI,
+            handleStartIteration,
+            handleCompleteIteration,
+            handleSubmitForApproval,
+            handleDirectPublish,
+            handleAddApi,
+            handleAddCategory,
         },
     } = props;
 
@@ -303,6 +330,96 @@ const Header: React.FC<HeaderProps> = (props) => {
         }
     };
 
+    const otherOperations = (
+        <Menu>
+            <Menu.Item key="category" onClick={handleAddCategory}>
+                {translate("apiManagement.addCategory")}
+            </Menu.Item>
+        </Menu>
+    );
+
+    const inIterationOperations = (
+        <Menu>
+            <Menu.Item
+                key="api"
+                disabled={iterationReadOnly}
+                onClick={handleAddApi}
+            >
+                {translate("apiManagement.createApi")}
+            </Menu.Item>
+        </Menu>
+    );
+
+    const completeButtonLabel = (() => {
+        if (iterationApprovalStatus === "pending") {
+            return translate("approval.pendingShort");
+        }
+        if (requiresIterationApproval) {
+            return translate("approval.submitForApproval");
+        }
+        return translate("iteration.complete");
+    })();
+
+    const completePrimaryAction = requiresIterationApproval
+        ? handleSubmitForApproval ?? handleCompleteIteration
+        : handleCompleteIteration;
+
+    const iterationCompleteDroplist =
+        requiresIterationApproval && isServiceOwner && handleDirectPublish ? (
+            <Menu>
+                <Menu.Item
+                    key="api"
+                    onClick={handleAddApi}
+                    disabled={iterationReadOnly}
+                >
+                    {translate("apiManagement.createApi")}
+                </Menu.Item>
+                <Menu.Item key="publish" onClick={handleDirectPublish}>
+                    {translate("approval.directPublish")}
+                </Menu.Item>
+            </Menu>
+        ) : (
+            inIterationOperations
+        );
+
+    const iterationActionButton =
+        isLatest &&
+        (inIteration ? (
+            iterationReadOnly ? (
+                <Tooltip content={translate("approval.pendingBanner")}>
+                    <Button type="primary" disabled>
+                        {completeButtonLabel}
+                    </Button>
+                </Tooltip>
+            ) : (
+                <Dropdown.Button
+                    type="primary"
+                    droplist={iterationCompleteDroplist}
+                    position="br"
+                    trigger="click"
+                    onClick={completePrimaryAction}
+                >
+                    {completeButtonLabel}
+                </Dropdown.Button>
+            )
+        ) : (
+            <Dropdown.Button
+                type="primary"
+                droplist={otherOperations}
+                position="br"
+                trigger="click"
+                onClick={() =>
+                    confirmAction(
+                        handleStartIteration,
+                        "action.startIteration",
+                        "confirm.startIteration",
+                    )
+                }
+            >
+                {translate("iteration.start")}
+            </Dropdown.Button>
+        ));
+
     if (loading || !versions || !serviceUuid) {
         return null;
     }
@@ -523,6 +640,23 @@ const Header: React.FC<HeaderProps> = (props) => {
                         </Space>
                     )}
                 <Space size={10}>
+                    {isLatest && isServiceOwner && onUpdateApprovalSetting && (
+                        <Space size={6}>
+                            <Text type="secondary" style={{ fontSize: 12 }}>
+                                {translate("approval.requireApproval")}
+                            </Text>
+                            <Switch
+                                checked={requiresIterationApproval}
+                                onChange={onUpdateApprovalSetting}
+                            />
+                        </Space>
+                    )}
+                    {iterationActionButton}
+                    {inIteration && onOpenAudit && (
+                        <Button type="text" onClick={onOpenAudit}>
+                            {translate("audit.title")}
+                        </Button>
+                    )}
                     {versions.length >= 2 && (
                         <Button
                             type="default"

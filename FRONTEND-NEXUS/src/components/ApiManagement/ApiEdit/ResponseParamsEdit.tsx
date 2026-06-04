@@ -18,9 +18,13 @@ import { useTranslation } from "react-i18next";
 
 interface ResponseParamsEditProps {
     setRejectSubmit: (reject: boolean) => void;
+    readOnly?: boolean;
 }
 
-const ResponseParamsEdit = ({ setRejectSubmit }: ResponseParamsEditProps) => {
+const ResponseParamsEdit = ({
+    setRejectSubmit,
+    readOnly = false,
+}: ResponseParamsEditProps) => {
     const { t } = useTranslation();
     const { form } = Form.useFormContext();
     const newStatusCodeRef = useRef("");
@@ -47,6 +51,9 @@ const ResponseParamsEdit = ({ setRejectSubmit }: ResponseParamsEditProps) => {
     const [activeTab, setActiveTab] = useState(() => statusCodes[0] ?? "");
 
     useEffect(() => {
+        if (readOnly) {
+            return;
+        }
         if (!statusCodes.length) {
             // 若用户手动编辑过tab，则不操作
             if (userEditedTabsRef.current) {
@@ -66,9 +73,12 @@ const ResponseParamsEdit = ({ setRejectSubmit }: ResponseParamsEditProps) => {
         if (!activeTab || !statusCodes.includes(activeTab)) {
             setActiveTab(statusCodes[0] || "");
         }
-    }, [activeTab, form, statusCodes]);
+    }, [activeTab, form, statusCodes, readOnly]);
 
     const handleDeleteTab = (tab: string) => {
+        if (readOnly) {
+            return;
+        }
         confirmAction(
             () => {
                 userEditedTabsRef.current = true;
@@ -101,11 +111,11 @@ const ResponseParamsEdit = ({ setRejectSubmit }: ResponseParamsEditProps) => {
             </div>
             <Tabs
                 type="card"
-                editable
+                editable={!readOnly}
                 activeTab={activeTab}
-                onDeleteTab={handleDeleteTab}
+                onDeleteTab={readOnly ? undefined : handleDeleteTab}
                 onChange={setActiveTab}
-                addButton={
+                addButton={readOnly ? null : (
                     <Popconfirm
                         title={t("apiDetail.addStatusCode")}
                         content={
@@ -154,7 +164,7 @@ const ResponseParamsEdit = ({ setRejectSubmit }: ResponseParamsEditProps) => {
                     >
                         <Button type="text" size="mini" icon={<IconPlus />} />
                     </Popconfirm>
-                }
+                )}
             >
                 {statusCodes.map((code) => (
                     <Tabs.TabPane key={code} title={code} />
@@ -180,6 +190,7 @@ const ResponseParamsEdit = ({ setRejectSubmit }: ResponseParamsEditProps) => {
                             <ParamTable
                                 type="response"
                                 setRejectSubmit={setRejectSubmit}
+                                readOnly={readOnly}
                             />
                         </Form.Item>
                     </div>

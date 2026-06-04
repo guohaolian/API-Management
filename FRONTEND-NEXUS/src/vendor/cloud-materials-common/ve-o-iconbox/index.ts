@@ -1,1 +1,4 @@
-export { IconDashboard as IconHouseDashboard } from "@arco-design/web-react/icon";
+export {
+    IconDashboard as IconHouseDashboard,
+    IconSchedule,
+} from "@arco-design/web-react/icon";

@@ -55,3 +55,25 @@ class UserLevel(enum.Enum):
     L2 = 2
     L3 = 3
     L4 = 4
+
+
+class IterationApprovalStatus(str, enum.Enum):
+    """str 混入，确保 SQLAlchemy 与 PostgreSQL 枚举按 value（小写）读写。"""
+
+    DRAFT = "draft"
+    PENDING = "pending"
+    REJECTED = "rejected"
+    COMMITTED = "committed"
+
+
+class IterationAuditAction(str, enum.Enum):
+    ITERATION_STARTED = "iteration_started"
+    DESCRIPTION_UPDATED = "description_updated"
+    API_ADDED = "api_added"
+    API_DELETED = "api_deleted"
+    API_UPDATED = "api_updated"
+    OPENAPI_IMPORTED = "openapi_imported"
+    SUBMITTED_FOR_APPROVAL = "submitted_for_approval"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    COMMITTED = "committed"

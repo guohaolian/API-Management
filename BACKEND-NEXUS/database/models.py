@@ -31,6 +31,8 @@ from .enums import (
     ParamType,
     UserRole,
     UserLevel,
+    IterationApprovalStatus,
+    IterationAuditAction,
 )
 from bcrypt import hashpw, gensalt, checkpw
 
@@ -164,6 +166,8 @@ class Service(Base, SerializableMixin):
     # 软删除
     is_deleted = Column(Boolean, default=False, index=True)
     deleted_at = Column(DateTime, nullable=True)
+    # 迭代提交前是否需 owner 审批（默认关闭，兼容现有行为）
+    requires_iteration_approval = Column(Boolean, default=False, nullable=False)
 
     def __repr__(self):
         return f"<Service {self.service_uuid}:{self.version}>"
@@ -178,7 +182,9 @@ class ServiceIteration(Base, SerializableMixin):
     service = relationship("Service", backref="iterations")
     # 迭代创建人
     creator_id = Column(Integer, ForeignKey("user.id"))
-    creator = relationship("User", backref="created_iterations")
+    creator = relationship(
+        "User", foreign_keys=[creator_id], backref="created_iterations"
+    )
 
     version = Column(
         String(32), nullable=True
@@ -187,9 +193,53 @@ class ServiceIteration(Base, SerializableMixin):
     created_at = Column(DateTime, default=datetime.now(timezone.utc))
     # 是否已发布
     is_committed = Column(Boolean, default=False)
+    # 发起迭代时的基线版本（用于变更预览与审计）
+    base_version = Column(String(32), nullable=True)
+    approval_status = Column(
+        Enum(
+            IterationApprovalStatus,
+            values_callable=lambda obj: [e.value for e in obj],
+        ),
+        default=IterationApprovalStatus.DRAFT,
+        nullable=False,
+    )
+    proposed_version = Column(String(32), nullable=True)
+    submitted_at = Column(DateTime, nullable=True)
+    submitted_by_id = Column(Integer, ForeignKey("user.id"), nullable=True)
+    submitted_by = relationship("User", foreign_keys=[submitted_by_id])
+    reviewed_at = Column(DateTime, nullable=True)
+    reviewed_by_id = Column(Integer, ForeignKey("user.id"), nullable=True)
+    reviewed_by = relationship("User", foreign_keys=[reviewed_by_id])
+    review_comment = Column(Text, nullable=True)
 
     def __repr__(self):
         return f"<ServiceIteration {self.service_id}:{self.version}>"
+
+
+# ---- 迭代审计日志 ----
+class IterationAuditLog(Base, SerializableMixin):
+    __tablename__ = "iteration_audit_log"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    service_iteration_id = Column(
+        Integer, ForeignKey("service_iteration.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    service_iteration = relationship("ServiceIteration", backref="audit_logs")
+    user_id = Column(Integer, ForeignKey("user.id"), nullable=False, index=True)
+    user = relationship("User", backref="iteration_audit_logs")
+    action = Column(
+        Enum(
+            IterationAuditAction,
+            values_callable=lambda obj: [e.value for e in obj],
+        ),
+        nullable=False,
+        index=True,
+    )
+    summary = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now(), index=True)
+
+    def __repr__(self):
+        return f"<IterationAuditLog {self.service_iteration_id}:{self.action}>"
 
 
 # ---- 接口分类表 ----

@@ -2,8 +2,8 @@
 
 NEXUS 是一个包含「接口管理 UI + 后端 API + 前端代码生成器」的完整工程：
 
-- 后端维护 Service / API / 参数树与版本迭代；
-- 前端提供可视化管理界面；
+- 后端维护 Service / API / 参数树与版本迭代（可选 **Owner 迭代审批** 与 **变更审计**）；
+- 前端提供可视化管理界面（含待审列表 `/approvals`）；
 - CLI 可在任意前端项目中生成 TypeScript 调用代码（可注入 axios/fetch 等 request）。
 
 产品说明（PRD）已整理到 [docs/PRD.md](docs/PRD.md)。
@@ -190,7 +190,7 @@ nexus update
 
 ## 更多文档
 
-- 产品说明（PRD）：[docs/PRD.md](docs/PRD.md)
+- 产品说明（PRD）：[docs/PRD.md](docs/PRD.md)（迭代审批见 PRD [§6.7](docs/PRD.md#67-迭代审批与变更审计可选)）
 - 阿里云部署（含自动更新）：[docs/DEPLOY-ALIYUN.md](docs/DEPLOY-ALIYUN.md) 第 14 节
 - GitHub Actions 补充说明：[docs/GITHUB-ACTIONS-DEPLOY.md](docs/GITHUB-ACTIONS-DEPLOY.md)
 - 后端说明：见 [BACKEND-NEXUS/README.md](BACKEND-NEXUS/README.md)

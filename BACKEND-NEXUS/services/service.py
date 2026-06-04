@@ -9,6 +9,10 @@ from datetime import datetime, timezone
 
 # 发送邮件工具（async）
 from mailer import send_email
+from database.enums import IterationApprovalStatus, IterationAuditAction
+from services.iteration_audit import append_iteration_audit
+from services.iteration_commit import commit_iteration_core
+from services.iteration_approval import check_direct_commit_allowed
 
 # SQLAlchemy 会话类型注解
 from sqlalchemy.orm import Session
@@ -589,8 +593,10 @@ def serviceStartIteration(db: Session, service_id: int, user_id: int) -> dict:
         service_id=service_id,
         creator_id=user_id,
         version=None,
-        description=None,
+        description=curr_service.description,
         is_committed=False,
+        base_version=curr_service.version,
+        approval_status=IterationApprovalStatus.DRAFT,
     )
     db.add(new_iteration)
     db.flush()  # 获取 new_iteration.id
@@ -665,7 +671,13 @@ def serviceStartIteration(db: Session, service_id: int, user_id: int) -> dict:
                 if draft_param:
                     draft_param.parent_param_id = resp_param_id_mapping[resp.parent_param_id]
 
-    # 持久化所有 draft 创建操作
+    append_iteration_audit(
+        db,
+        new_iteration.id,
+        user_id,
+        IterationAuditAction.ITERATION_STARTED,
+        {"base_version": curr_service.version},
+    )
     db.commit()
     return {
         "status": 200,
@@ -678,109 +690,43 @@ def serviceStartIteration(db: Session, service_id: int, user_id: int) -> dict:
 async def serviceCommitIteration(
     db: Session, service_iteration_id: int, new_version: str, user_id: int
 ) -> dict:
-    # 版本迭代行为权限校验
     check_res = checkServiceIterationPermission(
         db=db,
         service_iteration_id=service_iteration_id,
         user_id=user_id,
     )
     if not check_res["is_ok"]:
-        return check_res
+        return check_res["error"]
     service_iteration = check_res["service_iteration"]
     service = service_iteration.service
-    # 确保新版本号不同于当前 service 的版本
-    if new_version == service.version:
-        return {"status": -1, "message": "New version is the same as current version"}
+    user = check_res["user"]
 
-    # 把迭代信息同步为 service 的正式版本信息
-    service.description = service_iteration.description
-    service.version = new_version
+    if service_iteration.approval_status == IterationApprovalStatus.PENDING:
+        return {"status": -21, "message": "Service iteration is pending approval"}
 
-    # 先删除 service 下所有历史 Api（以及级联的 request/response params），采用 bulk delete 提高性能
-    db.query(Api).filter(Api.service_id == service.id).delete(synchronize_session=False)
+    blocked = check_direct_commit_allowed(service, user_id, user)
+    if blocked:
+        return blocked
 
-    # 把 api_drafts 转换为正式 Api 与其参数
-    for api_draft in service_iteration.api_drafts:
-        new_api = Api(
-            service_id=service.id,
-            owner_id=api_draft.owner_id,
-            category_id=api_draft.category_id,
-            name=api_draft.name,
-            method=api_draft.method,
-            path=api_draft.path,
-            description=api_draft.description,
-            level=api_draft.level,
-            is_enabled=api_draft.is_enabled,
-        )
-        db.add(new_api)
-        db.flush()
+    append_iteration_audit(
+        db,
+        service_iteration_id,
+        user_id,
+        IterationAuditAction.COMMITTED,
+        {"new_version": new_version, "direct": True},
+    )
+    db.flush()
 
-        # 参数同样需要两步：先创建节点并记录 id 映射，再修补 parent 指针
-        req_param_id_mapping = {}
-        for req in api_draft.request_params:
-            request_param = RequestParam(
-                api_id=new_api.id,
-                name=req.name,
-                location=req.location,
-                type=req.type,
-                required=req.required,
-                default_value=req.default_value,
-                description=req.description,
-                example=req.example,
-                array_child_type=req.array_child_type,
-                parent_param_id=None,  # 先设为 None，后续更新
-            )
-            db.add(request_param)
-            db.flush()
-            req_param_id_mapping[req.id] = request_param.id
+    res = commit_iteration_core(db, service_iteration, new_version)
+    if res["status"] != 200:
+        return res
 
-        for req in api_draft.request_params:
-            if req.parent_param_id is not None:
-                param = (
-                    db.query(RequestParam).filter(RequestParam.id == req_param_id_mapping[req.id]).first()
-                )
-                if param:
-                    param.parent_param_id = req_param_id_mapping[req.parent_param_id]
-
-        resp_param_id_mapping = {}
-        for resp in api_draft.response_params:
-            response_param = ResponseParam(
-                api_id=new_api.id,
-                status_code=resp.status_code,
-                name=resp.name,
-                type=resp.type,
-                required=resp.required,
-                description=resp.description,
-                example=resp.example,
-                array_child_type=resp.array_child_type,
-                parent_param_id=None,
-            )
-            db.add(response_param)
-            db.flush()
-            resp_param_id_mapping[resp.id] = response_param.id
-
-        for resp in api_draft.response_params:
-            if resp.parent_param_id is not None:
-                param = (
-                    db.query(ResponseParam).filter(ResponseParam.id == resp_param_id_mapping[resp.id]).first()
-                )
-                if param:
-                    param.parent_param_id = resp_param_id_mapping[resp.parent_param_id]
-
-    # 标记 iteration 为已提交并持久化整个事务（包含 service、api、params 的更新）
-    service_iteration.version = new_version
-    service_iteration.is_committed = True
-    db.commit()
-    # 发送邮件通知：收集 owner + maintainers 的邮件地址并去重
+    operator = user
     recipients = {service.owner.email}
     for maintainer in service.maintainers:
         if maintainer.email:
             recipients.add(maintainer.email)
 
-    # checkServiceIterationPermission 返回的 operator（执行者）信息
-    operator = check_res["user"]
-
-    # 异步发送邮件，失败仅打印日志不影响主流程
     mailRes = await send_email(
         to_email=list(recipients),
         subject=f"服务 {service.service_uuid} 版本更新",
@@ -791,16 +737,9 @@ async def serviceCommitIteration(
         ),
     )
     if mailRes["status"] != 200:
-        # 邮件失败只是通知问题，不回滚已经提交的版本变更
         print(f"Send email failed: {mailRes.get('message', 'Unknown error')}")
 
-    return {
-        "status": 200,
-        "message": "Commit service iteration success",
-        "service_id": service.id,
-        "service_iteration_id": service_iteration.id,
-        "version": new_version,
-    }
+    return res
 
 
 # 通过 service_iteration_id 修改 service description
@@ -815,8 +754,14 @@ def serviceUpdateDescription(
         return check_res["error"]
 
     service_iteration = check_res["service_iteration"]
-    # 直接更新 description 字段并 commit（描述修改只影响迭代对象，不触及 service 正式数据）
     service_iteration.description = description
+    append_iteration_audit(
+        db,
+        service_iteration_id,
+        user_id,
+        IterationAuditAction.DESCRIPTION_UPDATED,
+        {"description_length": len(description or "")},
+    )
     db.commit()
     return {"status": 200, "message": "Update service description success"}
 

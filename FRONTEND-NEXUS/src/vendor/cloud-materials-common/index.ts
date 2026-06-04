@@ -1,11 +1,13 @@
 import React, { type CSSProperties, type ReactNode } from "react";
 import {
+    Alert,
     Avatar,
     Badge,
     Breadcrumb,
     Button,
     Descriptions,
     Divider,
+    Drawer,
     Dropdown,
     Form,
     Input,
@@ -23,6 +25,7 @@ import {
     Table,
     Tabs,
     Tag,
+    Timeline,
     Tooltip,
     Tree,
     Typography,
@@ -44,12 +47,14 @@ import {
 } from "@arco-design/web-react/icon";
 
 export {
+    Alert,
     Avatar,
     Badge,
     Breadcrumb,
     Button,
     Descriptions,
     Divider,
+    Drawer,
     Dropdown,
     Form,
     Input,
@@ -67,6 +72,7 @@ export {
     Table,
     Tabs,
     Tag,
+    Timeline,
     Tooltip,
     Tree,
     Typography,
@@ -87,6 +93,15 @@ export type { TableColumnProps };
 
 export const IconCommon: typeof IconApps = IconApps;
 
+type ConfirmOptions = {
+    title?: ReactNode;
+    content?: ReactNode;
+    okText?: string;
+    cancelText?: string;
+    onOk?: () => void | Promise<void>;
+    onCancel?: () => void | Promise<void>;
+};
+
 type OpenArcoFormOptions<TValues extends Record<string, any> = Record<string, any>> = {
     title: ReactNode;
     content: ReactNode;
@@ -99,6 +114,15 @@ type OpenArcoFormOptions<TValues extends Record<string, any> = Record<string, an
 };
 
 export const CModal = {
+    confirm: (options: ConfirmOptions) =>
+        Modal.confirm({
+            title: options.title,
+            content: options.content,
+            okText: options.okText,
+            cancelText: options.cancelText,
+            onOk: options.onOk,
+            onCancel: options.onCancel,
+        }),
     openArcoForm: <TValues extends Record<string, any> = Record<string, any>>(
         options: OpenArcoFormOptions<TValues>
     ) => {

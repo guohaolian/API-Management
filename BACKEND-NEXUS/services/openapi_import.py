@@ -17,6 +17,8 @@ from database.models import (
     User,
 )
 from services.utils import checkServiceIterationPermission  # 权限校验工具
+from database.enums import IterationAuditAction
+from services.iteration_audit import append_iteration_audit
 
 
 # 最大去引用深度，避免深度嵌套或循环引用导致递归爆栈
@@ -819,7 +821,13 @@ def import_openapi_to_iteration(
             openapi_object=openapi_object,
             user_id=user_id,
         )
-        # 成功后提交事务
+        append_iteration_audit(
+            db,
+            service_iteration_id,
+            user_id,
+            IterationAuditAction.OPENAPI_IMPORTED,
+            imported,
+        )
         db.commit()
     except Exception as e:
         # 出错时回滚并返回错误信息

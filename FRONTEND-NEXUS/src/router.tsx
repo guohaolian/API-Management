@@ -2,6 +2,7 @@ import { createBrowserRouter, redirect } from "react-router-dom";
 import Layout from "@/components/Layout";
 import ApiManagement from "@/components/ApiManagement";
 import ServiceManagement from "@/components/ServiceManagement";
+import PendingApprovals from "@/components/PendingApprovals";
 import { Message } from "@cloud-materials/common";
 import { t } from "i18next";
 
@@ -26,6 +27,11 @@ export const router = createBrowserRouter([
             {
                 path: "service",
                 element: <ApiManagement />,
+                loader: requireAuthLoader,
+            },
+            {
+                path: "approvals",
+                element: <PendingApprovals />,
                 loader: requireAuthLoader,
             },
         ],

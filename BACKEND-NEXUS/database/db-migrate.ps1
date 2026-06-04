@@ -1,9 +1,19 @@
+param(
+    # 模型变更后生成新 revision（需已配置 .env 中的 DATABASE_URI）
+    [switch]$Generate,
+    [string]$Message = "db migrate"
+)
+
 $ErrorActionPreference = 'Stop'
 
-# Switch to the project root directory (BACKEND-NEXUS)
 Set-Location -Path (Join-Path $PSScriptRoot '..')
 
 Write-Host 'Database Migration Start...'
-uv run alembic revision --autogenerate -m 'db migrate'
+
+if ($Generate) {
+    Write-Host "Generating revision: $Message"
+    uv run alembic revision --autogenerate -m $Message
+}
+
 uv run alembic upgrade head
 Write-Host 'Database Migration Success'

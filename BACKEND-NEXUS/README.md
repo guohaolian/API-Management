@@ -103,7 +103,14 @@ cd BACKEND-NEXUS
 | POST | `/v1/service/restoreServiceById` | 是 | Body: `id` | 还原已软删除的服务 |
 | POST | `/v1/service/deleteIterationById` | 是 | Body: `service_iteration_id` | 删除服务的历史迭代版本 |
 | POST | `/v1/service/startIteration` | 是 | Body: `service_id` | 发起迭代，从当前最新版本复制草稿，返回 `service_iteration_id` |
-| POST | `/v1/service/commitIteration` | 是 | Body: `service_iteration_id`, `new_version` | 提交迭代，将草稿写入正式版本并更新版本号 |
+| POST | `/v1/service/commitIteration` | 是 | Body: `service_iteration_id`, `new_version` | 提交迭代（直接发布）。服务已开启审批时，非 Owner/L0 不可用；`pending` 状态不可提交 |
+| POST | `/v1/service/submitIterationForApproval` | 是 | Body: `service_iteration_id`, `new_version` | 提交审批（服务须开启 `requires_iteration_approval`），状态变为 `pending` |
+| POST | `/v1/service/approveIteration` | 是 | Body: `service_iteration_id`, `review_comment`（可选） | Owner/L0 通过待审迭代，按 `proposed_version` 发布 |
+| POST | `/v1/service/rejectIteration` | 是 | Body: `service_iteration_id`, `review_comment`（必填） | Owner/L0 驳回，状态变为 `rejected`，可继续编辑 |
+| GET | `/v1/service/getPendingIterations` | 是 | Query: `page_size`, `current_page` | Owner 分页获取本人服务下待审迭代 |
+| GET | `/v1/service/getIterationAuditLog` | 是 | Query: `service_iteration_id`, `page_size`, `current_page` | 获取迭代变更审计时间线 |
+| GET | `/v1/service/getIterationChangePreview` | 是 | Query: `service_iteration_id` | 获取相对 `base_version` 的变更预览（diff） |
+| POST | `/v1/service/updateServiceApprovalSetting` | 是 | Body: `service_id`, `requires_iteration_approval` | Owner 开启/关闭服务的「迭代需审批」 |
 | POST | `/v1/service/updateDescription` | 是 | Body: `service_iteration_id`, `description` | 在迭代中修改服务描述 |
 | POST | `/v1/service/importOpenapiToNewIteration` | 是 | Body: `service_id`, `openapi_object` | 从 OpenAPI 文档创建新迭代并写入草稿 |
 | POST | `/v1/service/importOpenapiToIteration` | 是 | Body: `service_iteration_id`, `openapi_object` | 将 OpenAPI 文档导入当前迭代（覆盖草稿） |
@@ -158,14 +165,53 @@ MAIL_DEFAULT_SENDER=your_email@example.com
 
 ## 数据库迁移（模型变更时）
 
-仓库提供了迁移脚本：
+项目已配置 [Alembic](https://alembic.sqlalchemy.org/)（`alembic.ini`、`alembic/env.py`），连接串从 `.env` 的 `DATABASE_URI` 读取，元数据来自 `database/models.py`。
 
-- Windows PowerShell：[database/db-migrate.ps1](database/db-migrate.ps1)
-- macOS/Linux：[database/db-migrate.sh](database/db-migrate.sh)
+### 已有表（本地 / 服务器均如此）
 
-脚本内部会执行 `uv run alembic revision --autogenerate` 与 `uv run alembic upgrade head`。
+首次接入迁移、且**尚未**执行过迭代审批相关 DDL 时，在 `BACKEND-NEXUS` 目录：
 
-> 注意：本仓库当前未包含 `alembic.ini` / 迁移目录等初始化产物；若你本地尚未配置好 Alembic，需要先完成 Alembic 初始化与配置后再运行迁移脚本。
+```powershell
+# 仅应用已提交的 revision（推荐）
+.\database\db-migrate.ps1
+```
+
+```bash
+bash database/db-migrate.sh
+```
+
+若在 Linux 上出现 `$'\r': command not found` 或 `set: invalid option`，说明脚本是 Windows 换行符，先执行：
+
+```bash
+sed -i 's/\r$//' database/db-migrate.sh
+```
+
+或直接：`uv run alembic upgrade head`。
+
+等价于 `uv run alembic upgrade head`，会执行 `alembic/versions/20250604_001_iteration_approval.py`（审批字段 + `iteration_audit_log`）。
+
+若你**已经手工执行过** [docs/migrations/20250604_iteration_approval.sql](../docs/migrations/20250604_iteration_approval.sql)，不要再 `upgrade`，只需标记版本：
+
+```bash
+uv run alembic stamp 20250604_001
+```
+
+### 后续修改 models.py
+
+1. 生成新 revision（需数据库可连、用于 autogenerate 对比）：
+
+   - Windows：`.\database\db-migrate.ps1 -Generate -Message "describe change"`
+   - Linux/macOS：`bash database/db-migrate.sh --generate "describe change"`
+
+2. 检查 `alembic/versions/` 下新生成的脚本，确认无误后再 `upgrade head`（不带 `-Generate` 的 `db-migrate` 脚本只会升级）。
+
+### 全新空库
+
+仍可用 `uv run python -m database.init_db` 建表；若要走 Alembic 线，可在建表后 `uv run alembic stamp head` 与线上一致。
+
+### 部署
+
+`deploy/scripts/deploy.sh` 在 `RUN_DB_MIGRATE=true` 且存在 `alembic.ini` 时会执行 `alembic upgrade head`（不 autogenerate）。
 
 ## 后端逻辑摘要
 
@@ -344,4 +390,17 @@ MAIL_DEFAULT_SENDER=your_email@example.com
         >
         > `resp_params` 类似，只是 `location` 换为 `status_code`
 
-3. 用户在本迭代周期内完成所有行为后，发起提交 `/commitIteration`，将 `ServiceIteration` 其全部信息拷贝进 `Service` 表中（即全部关联的 `ApiDraft`，及其中记录的全部请求参数和响应参数），同步到数据库中的 `Api`、`RequestParam` 和 `ResponseParam` 表中。之后更新当前 `service` 的 `version`，并将 `ServiceIteration` 标记 `is_committed=True`。保留 `ServiceIteration` 记录，作为历史版本记录
+3. 用户在本迭代周期内完成所有行为后发布版本：
+
+    - **未开启审批**（默认）：`/commitIteration`，输入 `new_version` 后直接写回正式表
+    - **已开启审批**：提交人 `/submitIterationForApproval` → Owner `/approveIteration` 发布；或 Owner/L0 `/commitIteration` 直接发布。`approval_status=pending` 时禁止一切草稿编辑（见 `services/utils.py`）
+
+    发布时将 `ServiceIteration` 及其 `ApiDraft`/参数草稿同步到 `Api`/`RequestParam`/`ResponseParam`，更新 `service.version`，`is_committed=True`，`approval_status=committed`。
+
+#### 迭代审批与变更审计
+
+- 产品说明见 [docs/PRD.md §6.7](../docs/PRD.md#67-迭代审批与变更审计可选)
+- 实现：`services/iteration_approval.py`、`services/iteration_audit.py`、`services/iteration_commit.py`；路由见上文「迭代审批」相关接口
+- `approval_status`：`draft` | `pending` | `rejected` | `committed`（与 `is_committed` 配合）
+- `iteration_audit_log`：记录 API 增删改及提交/通过/驳回/提交发布等事件（`database/enums.py` → `IterationAuditAction`）
+- 数据库迁移：`alembic/versions/20250604_001_iteration_approval.py` 或 [docs/migrations/20250604_iteration_approval.sql](../docs/migrations/20250604_iteration_approval.sql)

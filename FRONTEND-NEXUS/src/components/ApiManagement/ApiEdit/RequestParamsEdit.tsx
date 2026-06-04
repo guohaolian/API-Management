@@ -11,12 +11,14 @@ interface RequestParamsEditProps {
     reqParamsActiveTab: string;
     setReqParamsActiveTab: (key: string) => void;
     setRejectSubmit: (reject: boolean) => void;
+    readOnly?: boolean;
 }
 
 const RequestParamsEdit = ({
     reqParamsActiveTab,
     setReqParamsActiveTab,
     setRejectSubmit,
+    readOnly = false,
 }: RequestParamsEditProps) => {
     const { t } = useTranslation();
 
@@ -57,6 +59,7 @@ const RequestParamsEdit = ({
                             <ParamTable
                                 type="request"
                                 setRejectSubmit={setRejectSubmit}
+                                readOnly={readOnly}
                             />
                         </Form.Item>
                     </div>
