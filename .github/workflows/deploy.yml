@@ -40,4 +40,13 @@ jobs:
               exit 1
             fi
             cd "$DEPLOY_PATH"
+            # 在 pull 新 deploy.sh 之前先对齐远程（解决服务器上 __pycache__ 本地改动阻塞 pull）
+            git fetch origin main
+            git checkout main
+            find BACKEND-NEXUS -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+            git checkout -- FRONTEND-NEXUS/package-lock.json 2>/dev/null || true
+            if ! git pull --ff-only origin main; then
+              echo "WARN: 预拉取失败，执行 git reset --hard origin/main"
+              git reset --hard origin/main
+            fi
             bash deploy/scripts/deploy.sh
