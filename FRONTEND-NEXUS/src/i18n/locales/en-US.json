@@ -155,7 +155,7 @@
     "notLatestVersion": "Historical Version",
     "serviceMaintainers": "Service Maintainers",
     "exportOpenapi": "Export OpenAPI",
-    "versionDiff": "Compare Versions",
+    "versionDiff": "Versions Compare",
     "importOpenapi": "Import OpenAPI",
     "relatedMembers": "Members of {{uuid}}",
     "memberCount": "{{count}} members",
