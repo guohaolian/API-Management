@@ -1,5 +1,5 @@
 import React from "react";
-import { Menu, Message } from "@cloud-materials/common";
+import { Menu } from "@cloud-materials/common";
 import {
     IconHouseDashboard,
     IconSchedule,
@@ -31,7 +31,7 @@ const Sidebar: React.FC = () => {
                     style={{
                         width: 18,
                         height: 18,
-                        marginRight: 8,
+                        marginRight: 13,
                         marginLeft: 1,
                     }}
                 />
@@ -46,15 +46,14 @@ const Sidebar: React.FC = () => {
     ];
 
     const handleMenuClick = (key: string) => {
-        if (key === "/service") {
-            Message.warning(t("toast.enterServiceFromHome"));
-            return;
-        }
         navigate(key);
     };
 
     const getSelectedKeys = () => {
         const path = location.pathname;
+        if (path.startsWith("/service")) {
+            return ["/service"];
+        }
         return [path];
     };
 

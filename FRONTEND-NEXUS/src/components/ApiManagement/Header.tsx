@@ -441,7 +441,7 @@ const Header: React.FC<HeaderProps> = (props) => {
             </Button> */}
             <div style={{ cursor: "default" }}>
                 <Breadcrumb>
-                    <Breadcrumb.Item href="/">
+                    <Breadcrumb.Item href="/service">
                         {translate("apiManagement.serviceList")}
                     </Breadcrumb.Item>
                     <Breadcrumb.Item
