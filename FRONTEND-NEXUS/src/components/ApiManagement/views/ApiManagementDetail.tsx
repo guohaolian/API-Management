@@ -227,6 +227,9 @@ const ApiManagementDetail: React.FC<{ uuid: string }> = ({ uuid }) => {
                             loading={iterationLoading || apiLoading}
                             apiDetail={apiDetail}
                             readOnly={iterationReadOnly}
+                            serviceUuid={serviceUuid}
+                            currentVersion={currentVersion}
+                            serviceIterationId={iterationId}
                             handlers={{
                                 handleSaveApiDraft,
                                 handleCopyApi,
@@ -234,7 +237,13 @@ const ApiManagementDetail: React.FC<{ uuid: string }> = ({ uuid }) => {
                             }}
                         />
                     ) : (
-                        <Detail loading={apiLoading} apiDetail={apiDetail} />
+                        <Detail
+                            loading={apiLoading}
+                            apiDetail={apiDetail}
+                            isLatest={isLatest}
+                            serviceUuid={serviceUuid}
+                            currentVersion={currentVersion}
+                        />
                     )}
                 </Layout.Content>
             </Layout>
