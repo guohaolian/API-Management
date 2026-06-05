@@ -1,7 +1,7 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
 import { EmptyIconCAM } from "@/assets/icons";
-import styles from "./index.module.less";
+import styles from "./BlankPage.module.less";
 
 const BlankPage: React.FC<{ message?: string }> = ({ message }) => {
     const { t } = useTranslation();

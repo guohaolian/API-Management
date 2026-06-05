@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { useUser } from "@/hooks/useUser";
 import ServiceListSection from "@/components/ServiceManagement/ServiceListSection";
 import serviceStyles from "@/components/ServiceManagement/index.module.less";
-import ApiManagementDetail from "./ApiManagementDetail";
+import ApiManagementDetail from "./views/ApiManagementDetail";
 
 const ApiManagement: React.FC = () => {
     const [searchParams] = useSearchParams();

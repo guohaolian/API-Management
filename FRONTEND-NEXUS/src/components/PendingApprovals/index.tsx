@@ -18,7 +18,7 @@ import {
 } from "@/services/service";
 import type { PendingIterationItem } from "@/services/service/types";
 import { resolveApiMessage, toastFromError } from "@/i18n/apiMessage";
-import VersionDiffModal from "@/components/ApiManagement/VersionDiffModal";
+import VersionDiffModal from "@/components/ApiManagement/modals/VersionDiffModal";
 import styles from "./index.module.less";
 
 const { Title, Text } = Typography;

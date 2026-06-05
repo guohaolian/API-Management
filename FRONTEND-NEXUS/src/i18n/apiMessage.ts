@@ -69,6 +69,7 @@ const BACKEND_MESSAGE_KEY_MAP: Record<string, string> = {
     "You are neither the owner nor the maintainer of this service, nor the creator of this service iteration":
         "backend.notOwnerMaintainerOrIterationCreator",
     "Get api success": "backend.getApiSuccess",
+    "Mock executed successfully": "mockConsole.executeSuccess",
     "Api category not changed": "backend.apiCategoryNotChanged",
     "Update api category success": "backend.updateApiCategorySuccess",
     "Category not belongs to this service": "backend.categoryNotInService",

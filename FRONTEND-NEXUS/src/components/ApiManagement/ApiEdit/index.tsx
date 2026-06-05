@@ -24,8 +24,9 @@ import type {
 } from "@/services/api/types";
 import RequestParamsEdit from "./RequestParamsEdit";
 import ResponseParamsEdit from "./ResponseParamsEdit";
+import MockConsole from "../Detail/MockConsole";
 import { confirmAction } from "@/utils";
-import BlankPage from "@/components/BlankPage";
+import BlankPage from "@/components/shared/BlankPage";
 import { useTranslation } from "react-i18next";
 import { resolveApiMessage, toastFromError } from "@/i18n/apiMessage";
 import {
@@ -45,6 +46,9 @@ interface ApiEditProps {
     loading: boolean;
     apiDetail: ApiDetail | ApiDraftDetail;
     readOnly?: boolean;
+    serviceUuid?: string;
+    currentVersion?: string;
+    serviceIterationId?: number;
     handlers: ApiEditHandlers;
 }
 
@@ -52,6 +56,9 @@ const ApiEdit: React.FC<ApiEditProps> = ({
     loading,
     apiDetail,
     readOnly = false,
+    serviceUuid,
+    currentVersion,
+    serviceIterationId,
     handlers: { handleSaveApiDraft, handleCopyApi, handleDeleteApi },
 }) => {
     const { t } = useTranslation();
@@ -236,6 +243,14 @@ const ApiEdit: React.FC<ApiEditProps> = ({
                         readOnly={readOnly}
                     />
                 </Form>
+                <Divider />
+                <MockConsole
+                    apiDetail={apiDetail}
+                    isLatest={false}
+                    serviceUuid={serviceUuid}
+                    currentVersion={currentVersion}
+                    serviceIterationId={serviceIterationId}
+                />
             </Spin>
         </div>
     );

@@ -511,5 +511,22 @@
     "requestParams": "请求参数",
     "responseParams": "响应参数",
     "noParamChanges": "无参数变更"
+  },
+  "mockConsole": {
+    "title": "Mock 调试台",
+    "description": "按参数定义中的 example / default 生成示例响应，支持当前版本、历史版本与迭代草稿。",
+    "proxyUrl": "Mock 代理地址",
+    "proxyHint": "将前端请求的 baseURL 指向此地址并携带 Bearer Token，即可在联调时使用 Mock 响应（路径参数需替换为实际值）。",
+    "copyUrl": "复制",
+    "copied": "已复制 Mock 地址",
+    "responseStatus": "响应状态码",
+    "resetRequest": "重置请求",
+    "sendMock": "发送 Mock",
+    "requestPlaceholder": "JSON 格式，由 example / default 预填",
+    "response": "Mock 响应",
+    "responsePlaceholder": "点击「发送 Mock」查看按定义生成的响应",
+    "executeSuccess": "Mock 执行成功",
+    "executeFailed": "Mock 执行失败",
+    "loadDefaultsFailed": "加载 Mock 预填参数失败"
   }
 }

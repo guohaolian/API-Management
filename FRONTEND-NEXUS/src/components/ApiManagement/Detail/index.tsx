@@ -7,16 +7,28 @@ import type { ApiDetail, ApiDraftDetail } from "@/services/api/types";
 import BriefInfo from "./BriefInfo";
 import RequestParams from "./RequestParams";
 import ResponseParams from "./ResponseParams";
-import BlankPage from "../../BlankPage";
+import MockConsole from "./MockConsole";
+import BlankPage from "@/components/shared/BlankPage";
 
 const { Title } = Typography;
 
 const Detail: React.FC<{
     loading: boolean;
     apiDetail: ApiDetail | ApiDraftDetail;
+    isLatest?: boolean;
+    serviceUuid?: string;
+    currentVersion?: string;
+    serviceIterationId?: number;
 }> = (props) => {
     const { t } = useTranslation();
-    const { loading, apiDetail } = props;
+    const {
+        loading,
+        apiDetail,
+        isLatest = true,
+        serviceUuid,
+        currentVersion,
+        serviceIterationId,
+    } = props;
 
     if (loading) {
         return (
@@ -47,6 +59,14 @@ const Detail: React.FC<{
             <RequestParams apiDetail={apiDetail} />
             <Divider />
             <ResponseParams apiDetail={apiDetail} />
+            <Divider />
+            <MockConsole
+                apiDetail={apiDetail}
+                isLatest={isLatest}
+                serviceUuid={serviceUuid}
+                currentVersion={currentVersion}
+                serviceIterationId={serviceIterationId}
+            />
         </div>
     );
 };

@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import VersionDiffModal from "./VersionDiffModal";
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import VersionDiffModal from "../modals/VersionDiffModal";
 import debounce from "lodash/debounce";
 import {
     //Badge,
@@ -20,7 +20,7 @@ import {
     Typography,
 } from "@cloud-materials/common";
 
-import styles from "./index.module.less";
+import styles from "../index.module.less";
 import type { UserProfile, UserRole } from "@/services/user/types";
 import { confirmAction, copyToClipboard, genUserRoleTag, userAvatar } from "@/utils";
 import { useUser } from "@/hooks/useUser";

@@ -510,5 +510,22 @@
     "requestParams": "Request parameters",
     "responseParams": "Response parameters",
     "noParamChanges": "No parameter changes"
+  },
+  "mockConsole": {
+    "title": "Mock Console",
+    "description": "Generate sample responses from example / default fields. Works for latest, historical, and draft versions.",
+    "proxyUrl": "Mock proxy URL",
+    "proxyHint": "Point your frontend baseURL here with Bearer Token to use mock responses during integration (replace path params with real values).",
+    "copyUrl": "Copy",
+    "copied": "Mock URL copied",
+    "responseStatus": "Response status",
+    "resetRequest": "Reset request",
+    "sendMock": "Send Mock",
+    "requestPlaceholder": "JSON, pre-filled from example / default",
+    "response": "Mock response",
+    "responsePlaceholder": "Click Send Mock to generate a response from the API definition",
+    "executeSuccess": "Mock executed successfully",
+    "executeFailed": "Mock execution failed",
+    "loadDefaultsFailed": "Failed to load mock defaults"
   }
 }

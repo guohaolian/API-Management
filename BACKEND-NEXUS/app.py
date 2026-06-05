@@ -4,6 +4,7 @@ from robyn.robyn import Response
 from subRouters.v1.user import userRouterV1
 from subRouters.v1.service import serviceRouterV1
 from subRouters.v1.api import apiRouterV1
+from subRouters.v1.mock import mockRouterV1
 
 import os
 from dotenv import load_dotenv
@@ -38,9 +39,10 @@ app.openapi.openapi_spec["security"] = [{"BearerAuth": []}]
 app.include_router(userRouterV1)
 app.include_router(serviceRouterV1)
 app.include_router(apiRouterV1)
+app.include_router(mockRouterV1)
 
 # 生产环境需要注释：使用nginx解决跨域
-#ALLOW_CORS(app, origins=["http://localhost:9000", "http://127.0.0.1:9000"])
+ALLOW_CORS(app, origins=["http://localhost:9000", "http://127.0.0.1:9000"])
 
 
 @app.exception

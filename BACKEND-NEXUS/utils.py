@@ -13,5 +13,10 @@ def version2Number(version_str: str) -> int:
         return 0
 
 
-def string2Bool(str: str) -> bool:
-    return str.lower() == "true"
+def string2Bool(value) -> bool:
+    """Parse bool from query/body values (Robyn may yield str or bool)."""
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return False
+    return str(value).lower() == "true"
