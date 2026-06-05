@@ -233,6 +233,7 @@ const ApiList: React.FC<ApiListProps> = (props) => {
                     autoExpandParent
                     expandedKeys={expandedKeys}
                     blockNode
+                    actionOnClick={["select", "expand"]}
                     draggable={!inIteration && isLatest}
                     onSelect={handleSelectApi}
                     onExpand={(keys) => setExpandedKeys((keys || []).map(String))}

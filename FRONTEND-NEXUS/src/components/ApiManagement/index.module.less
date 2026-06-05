@@ -12,10 +12,13 @@
     bottom: 0;
     margin-bottom: 30px;
     padding-bottom: 12px;
-    
-    
-    overflow-y: scroll;
-    scrollbar-gutter: stable;
+    overflow: hidden;
+
+    :global(.arco-layout-sider-children) {
+        overflow-x: hidden;
+        overflow-y: scroll;
+        scrollbar-gutter: stable;
+    }
 }
 
 :global(.arco-tree-node-selected) {
@@ -38,6 +41,11 @@
 .tree {
     :global(.arco-tree-node) {
         padding: 6px 4px;
+    }
+    :global(.arco-tree-node-disabled-selectable) {
+        :global(.arco-tree-node-title) {
+            cursor: pointer;
+        }
     }
     :global(.arco-tree-node) .nodeDelete {
         opacity: 0;
