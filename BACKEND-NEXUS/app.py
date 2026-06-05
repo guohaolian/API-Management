@@ -40,7 +40,7 @@ app.include_router(serviceRouterV1)
 app.include_router(apiRouterV1)
 
 # 生产环境需要注释：使用nginx解决跨域
-ALLOW_CORS(app, origins=["http://localhost:9000", "http://127.0.0.1:9000"])
+#ALLOW_CORS(app, origins=["http://localhost:9000", "http://127.0.0.1:9000"])
 
 
 @app.exception
