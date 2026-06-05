@@ -1,6 +1,7 @@
 import type {
     ApiDetail,
     ApiDraftDetail,
+    ParamLocation,
     ParamType,
     RequestParam,
     RequestParamDraft,
@@ -100,10 +101,12 @@ function buildObjectFromParams(params: ParamNode[]): Record<string, unknown> {
 export function buildMockDefaultsFromApiDetail(
     apiDetail: ApiDetail | ApiDraftDetail,
 ): { defaultRequest: MockRequestInput; statusCodes: number[] } {
-    const locations = apiDetail.request_params_by_location || {};
+    const locations = (apiDetail.request_params_by_location ??
+        {}) as Partial<Record<ParamLocation, ParamNode[]>>;
     const defaultRequest: MockRequestInput = {};
 
-    for (const [location, params] of Object.entries(locations)) {
+    for (const location of Object.keys(locations) as ParamLocation[]) {
+        const params = locations[location];
         if (!params?.length) continue;
         if (location === "body") {
             if (
@@ -123,7 +126,8 @@ export function buildMockDefaultsFromApiDetail(
         }
     }
 
-    const byStatus = apiDetail.response_params_by_status_code || {};
+    const byStatus = (apiDetail.response_params_by_status_code ??
+        {}) as Record<number, unknown[]>;
     const statusCodes = Object.keys(byStatus)
         .map(Number)
         .filter((code) => (byStatus[code]?.length ?? 0) > 0)
