@@ -24,7 +24,10 @@ export const buildMockProxyUrl = (params: {
     version?: string;
     serviceIterationId?: number;
 }) => {
-    const base = import.meta.env.VITE_API_BASE_URL || "";
+    const base =
+        import.meta.env.VITE_API_BASE_URL ||
+        (typeof window !== "undefined" ? window.location.origin : "") ||
+        "";
     const query: string[] = [
         `service_uuid=${params.serviceUuid}`,
         `mock_path=${params.mockPath}`,

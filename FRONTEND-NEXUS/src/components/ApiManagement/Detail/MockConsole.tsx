@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
     Button,
@@ -19,7 +20,7 @@ import { buildMockDefaultsFromApiDetail } from "./mockDefaults";
 import { copyToClipboard, genApiMethodTag } from "@/utils";
 import { toastFromError } from "@/i18n/apiMessage";
 
-const { Text, Paragraph } = Typography;
+const { Text } = Typography;
 const { TextArea } = Input;
 
 interface MockConsoleProps {
@@ -40,6 +41,7 @@ const MockConsole: React.FC<MockConsoleProps> = ({
     serviceIterationId,
 }) => {
     const { t } = useTranslation();
+    const [searchParams] = useSearchParams();
     const [executing, setExecuting] = useState(false);
     const [statusCodes, setStatusCodes] = useState<number[]>([200]);
     const [selectedStatus, setSelectedStatus] = useState<number>(200);
@@ -145,15 +147,30 @@ const MockConsole: React.FC<MockConsoleProps> = ({
         }
     };
 
+    const resolvedServiceUuid = useMemo(() => {
+        if (serviceUuid) return serviceUuid;
+        const fromQuery = searchParams.get("uuid");
+        if (fromQuery) return fromQuery;
+        const service = (apiDetail as ApiDetail).service;
+        return service?.service_uuid || "";
+    }, [serviceUuid, searchParams, apiDetail]);
+
     const proxyUrl = useMemo(() => {
-        if (!serviceUuid || !apiDetail?.path) return "";
+        if (!resolvedServiceUuid || !apiDetail?.path) return "";
         return buildMockProxyUrl({
-            serviceUuid,
+            serviceUuid: resolvedServiceUuid,
             mockPath: apiDetail.path,
-            version: serviceIterationId ? undefined : currentVersion,
+            version: serviceIterationId
+                ? undefined
+                : currentVersion || "latest",
             serviceIterationId,
         });
-    }, [serviceUuid, apiDetail?.path, currentVersion, serviceIterationId]);
+    }, [
+        resolvedServiceUuid,
+        apiDetail?.path,
+        currentVersion,
+        serviceIterationId,
+    ]);
 
     const tabTitle = (key: string) => {
         const map: Record<string, string> = {
@@ -177,13 +194,10 @@ const MockConsole: React.FC<MockConsoleProps> = ({
                 <Space direction="vertical" size={4} style={{ width: "100%" }}>
                     <Text>{t("mockConsole.proxyUrl")}</Text>
                     <Space style={{ width: "100%" }}>
-                        <Paragraph
-                            copyable={false}
-                            style={{ margin: 0, flex: 1, wordBreak: "break-all" }}
-                        >
-                            {genApiMethodTag(apiDetail.method, "small")}{" "}
-                            {proxyUrl}
-                        </Paragraph>
+                        <Space size={6} style={{ flex: 1, wordBreak: "break-all" }}>
+                            {genApiMethodTag(apiDetail.method, "small")}
+                            <Text>{proxyUrl}</Text>
+                        </Space>
                         <Button
                             size="mini"
                             onClick={() =>
