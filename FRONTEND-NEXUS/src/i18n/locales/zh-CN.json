@@ -341,7 +341,7 @@
     "copyLink": "复制链接",
     "backToManage": "返回管理台",
     "missingUuid": "缺少服务 UUID",
-    "missingUuidHint": "请通过 /docs?uuid=your/service/uuid 访问文档门户。",
+    "missingUuidHint": "请通过 /portal?uuid=your/service/uuid 访问文档门户。",
     "accessDenied": "无法访问文档",
     "accessDeniedHint": "该服务未开启公开文档。请联系服务 Owner 开启，或使用有权限的账号登录后预览。",
     "loadFailed": "加载文档失败",

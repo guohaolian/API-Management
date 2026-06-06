@@ -71,7 +71,7 @@ const DocPortal: React.FC = () => {
         if (currentVersion) {
             params.set("version", currentVersion);
         }
-        return `${window.location.origin}/docs?${params.toString()}`;
+        return `${window.location.origin}/portal?${params.toString()}`;
     }, [serviceUuid, currentVersion]);
 
     const handleExportOpenAPI = async () => {

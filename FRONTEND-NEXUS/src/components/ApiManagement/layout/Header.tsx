@@ -739,7 +739,7 @@ const Header: React.FC<HeaderProps> = (props) => {
                             if (currentVersion) {
                                 params.set("version", currentVersion);
                             }
-                            navigate(`/docs?${params.toString()}`);
+                            navigate(`/portal?${params.toString()}`);
                         }}
                     >
                         {translate("docPortal.openPortal")}

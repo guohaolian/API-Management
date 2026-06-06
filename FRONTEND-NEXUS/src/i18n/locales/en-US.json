@@ -340,7 +340,7 @@
     "copyLink": "Copy link",
     "backToManage": "Back to console",
     "missingUuid": "Missing service UUID",
-    "missingUuidHint": "Open the portal via /docs?uuid=your/service/uuid",
+    "missingUuidHint": "Open the portal via /portal?uuid=your/service/uuid",
     "accessDenied": "Documentation unavailable",
     "accessDeniedHint": "Public docs are disabled for this service. Ask the owner to enable them, or sign in with an authorized account to preview.",
     "loadFailed": "Failed to load documentation",

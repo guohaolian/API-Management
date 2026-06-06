@@ -19,7 +19,7 @@ const requireAuthLoader = () => {
 
 export const router = createBrowserRouter([
     {
-        path: "/docs",
+        path: "/portal",
         element: <DocPortalLayout />,
         children: [
             {
