@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useMemo, useState } from "react";
+﻿import React, { useCallback, useEffect, useMemo, useState } from "react";
 import styles from "../index.module.less";
 import { useThisService, useServiceIteration } from "@/hooks/useService";
 import { useIterationApprovalPolling } from "@/hooks/useIterationApprovalPolling";
@@ -8,7 +8,7 @@ import Header from "../layout/Header";
 import ApiList from "../ApiList";
 import ApiEdit from "../ApiEdit";
 import IterationAuditTimeline from "../modals/IterationAuditTimeline";
-import { Alert, Layout, Message, Spin } from "@cloud-materials/common";
+import { Alert, Layout, Message, Modal, Spin } from "@cloud-materials/common";
 import type { UserProfile } from "@/services/user/types";
 import { inIterationWarning } from "@/utils";
 import { ImportOpenapiToIteration } from "@/services/service";
@@ -61,11 +61,7 @@ const ApiManagementDetail: React.FC<{ uuid: string }> = ({ uuid }) => {
     }, [serviceDetail]);
 
     const [selectedApiId, setSelectedApiId] = useState<number>(-1);
-
-    const { loading: apiLoading, apiDetail } = useApi(
-        selectedApiId,
-        inIteration ? false : isLatest
-    );
+    const [apiHasUnsavedChanges, setApiHasUnsavedChanges] = useState(false);
 
     const {
         loading: iterationLoading,
@@ -79,6 +75,78 @@ const ApiManagementDetail: React.FC<{ uuid: string }> = ({ uuid }) => {
         iterationApprovalStatus,
         iterationReadOnly,
     } = useServiceIteration(iterationId, apiCategories);
+
+    const iterationTreeReady =
+        inIteration && iterationId > 0 && iterationDetail?.id === iterationId;
+
+    useEffect(() => {
+        if (inIteration) {
+            setSelectedApiId(-1);
+            setApiHasUnsavedChanges(false);
+        }
+    }, [inIteration, iterationId]);
+
+    const handleApiDirtyChange = useCallback((dirty: boolean) => {
+        setApiHasUnsavedChanges(dirty);
+    }, []);
+
+    const blockIfUnsavedApi = useCallback(
+        (messageKey: string) => {
+            if (
+                iterationTreeReady &&
+                apiHasUnsavedChanges &&
+                selectedApiId > 0
+            ) {
+                Modal.warning({
+                    title: t("common.notice"),
+                    content: t(messageKey),
+                    okText: t("common.ok"),
+                });
+                return true;
+            }
+            return false;
+        },
+        [iterationTreeReady, apiHasUnsavedChanges, selectedApiId],
+    );
+
+    const guardIterationCompleteAction = useCallback(
+        (action: () => void | Promise<void>) => {
+            if (blockIfUnsavedApi("iteration.unsavedApiBeforeComplete")) {
+                return;
+            }
+            void action();
+        },
+        [blockIfUnsavedApi],
+    );
+
+    const handleRequestSelectApi = useCallback(
+        (apiId: number) => {
+            if (apiId === selectedApiId) {
+                return;
+            }
+            if (blockIfUnsavedApi("iteration.unsavedApiSwitchBlocked")) {
+                return;
+            }
+            setSelectedApiId(apiId);
+        },
+        [selectedApiId, blockIfUnsavedApi],
+    );
+
+    const handleSaveApiDraftWithClearDirty = useCallback(
+        async (
+            data: Parameters<typeof handleSaveApiDraft>[0],
+        ) => {
+            const res = await handleSaveApiDraft(data);
+            setApiHasUnsavedChanges(false);
+            return res;
+        },
+        [handleSaveApiDraft],
+    );
+
+    const { loading: apiLoading, apiDetail } = useApi(
+        selectedApiId,
+        iterationTreeReady ? false : isLatest,
+    );
 
     const [auditVisible, setAuditVisible] = useState(false);
 
@@ -136,6 +204,7 @@ const ApiManagementDetail: React.FC<{ uuid: string }> = ({ uuid }) => {
             const ok = await handleDeleteCategory(categoryId);
             if (ok && inIteration) {
                 setSelectedApiId(-1);
+                setApiHasUnsavedChanges(false);
                 await fetchIterationDetail();
             }
         },
@@ -198,10 +267,22 @@ const ApiManagementDetail: React.FC<{ uuid: string }> = ({ uuid }) => {
                         handleAddOrRemoveServiceMaintainerById,
                         handleExportOpenAPI,
                         handleImportOpenAPI,
-                        handleStartIteration,
-                        handleCompleteIteration,
-                        handleSubmitForApproval,
-                        handleDirectPublish,
+                        handleStartIteration: async () => {
+                            setSelectedApiId(-1);
+                            await handleStartIteration();
+                        },
+                        handleCompleteIteration: () =>
+                            guardIterationCompleteAction(
+                                handleCompleteIteration,
+                            ),
+                        handleSubmitForApproval: () =>
+                            guardIterationCompleteAction(
+                                handleSubmitForApproval,
+                            ),
+                        handleDirectPublish: () =>
+                            guardIterationCompleteAction(
+                                handleDirectPublish,
+                            ),
                         handleAddApi,
                         handleAddCategory,
                     }}
@@ -239,14 +320,12 @@ const ApiManagementDetail: React.FC<{ uuid: string }> = ({ uuid }) => {
                     <ApiList
                         inIteration={inIteration}
                         isLatest={isLatest}
+                        autoSelectFirst={!inIteration || iterationTreeReady}
+                        selectedApiId={selectedApiId}
                         treeData={
-                            inIteration && iterationDetail
-                                ? iterationTreeData
-                                : treeData
+                            iterationTreeReady ? iterationTreeData : treeData
                         }
-                        setSelectedApiId={(id) => {
-                            setSelectedApiId(id);
-                        }}
+                        onSelectApi={handleRequestSelectApi}
                         handlers={{
                             handleUpdateApiCategory,
                             handleDeleteCategory: handleDeleteCategoryWithRefresh,
@@ -254,20 +333,26 @@ const ApiManagementDetail: React.FC<{ uuid: string }> = ({ uuid }) => {
                     />
                 </Layout.Sider>
                 <Layout.Content style={{ marginLeft: 300 }}>
-                    {inIteration && iterationDetail ? (
+                    {iterationTreeReady ? (
                         <ApiEdit
                             loading={iterationLoading || apiLoading}
+                            detailLoading={apiLoading}
                             apiDetail={apiDetail}
                             readOnly={iterationReadOnly}
                             serviceUuid={uuid}
                             currentVersion={currentVersion}
                             serviceIterationId={iterationId}
+                            onDirtyChange={handleApiDirtyChange}
                             handlers={{
-                                handleSaveApiDraft,
+                                handleSaveApiDraft: handleSaveApiDraftWithClearDirty,
                                 handleCopyApi,
                                 handleDeleteApi,
                             }}
                         />
+                    ) : inIteration ? (
+                        <div className={styles.loadingCenter}>
+                            <Spin dot />
+                        </div>
                     ) : (
                         <Detail
                             loading={apiLoading}

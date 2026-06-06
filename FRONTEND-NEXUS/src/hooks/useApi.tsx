@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Message } from "@cloud-materials/common";
 
 import type { ApiDetail, ApiDraftDetail } from "@/services/api/types";
@@ -8,29 +8,43 @@ import { toastFromError } from "@/i18n/apiMessage";
 const useApi = (apiId: number, isLatest: boolean) => {
     const [loading, setLoading] = useState(false);
     const [apiDetail, setApiDetail] = useState<ApiDetail | ApiDraftDetail>(
-        {} as ApiDetail
+        {} as ApiDetail,
     );
+    const requestSeqRef = useRef(0);
 
     const fetchApiDetail = useCallback(async () => {
-        if (!apiId || apiId <= 0) {
+        const requestSeq = ++requestSeqRef.current;
+        const requestApiId = apiId;
+        const requestIsLatest = isLatest;
+
+        if (!requestApiId || requestApiId <= 0) {
             setApiDetail({} as ApiDetail);
+            setLoading(false);
             return;
         }
         setLoading(true);
         try {
-            const res = await GetApiById(apiId, isLatest);
+            const res = await GetApiById(requestApiId, requestIsLatest);
+            if (requestSeq !== requestSeqRef.current) {
+                return;
+            }
             if (res.status !== 200) {
                 setApiDetail({} as ApiDetail);
                 throw new Error(res.message || "获取 API 详情失败");
             }
             setApiDetail(res.api || ({} as ApiDetail));
         } catch (error: unknown) {
+            if (requestSeq !== requestSeqRef.current) {
+                return;
+            }
             setApiDetail({} as ApiDetail);
             Message.warning(
                 toastFromError(error, "toast.fetchApiDetailFailed"),
             );
         } finally {
-            setLoading(false);
+            if (requestSeq === requestSeqRef.current) {
+                setLoading(false);
+            }
         }
     }, [apiId, isLatest]);
 

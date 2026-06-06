@@ -13,7 +13,7 @@ from services.mock_engine import (
     generate_mock_body,
     match_api_path,
 )
-from services.utils import organizeReqParams, organizeRespParams
+from services.utils import isServiceOwnerOrMaintainer, organizeReqParams, organizeRespParams
 
 
 def _check_api_access(
@@ -29,7 +29,7 @@ def _check_api_access(
     if user.level.value != 0:
         if is_latest:
             service = api.service
-            if service.owner_id != user_id and user not in service.maintainers:
+            if not isServiceOwnerOrMaintainer(service, user_id, user):
                 return {
                     "status": -3,
                     "message": "You are neither the owner nor the maintainer of this service",
@@ -39,8 +39,7 @@ def _check_api_access(
             service = iteration.service
             if (
                 iteration.creator_id != user_id
-                and user not in service.maintainers
-                and service.owner_id != user_id
+                and not isServiceOwnerOrMaintainer(service, user_id, user)
             ):
                 return {
                     "status": -4,

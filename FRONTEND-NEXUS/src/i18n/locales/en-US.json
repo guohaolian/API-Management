@@ -125,7 +125,9 @@
     "versionTooLow": "New version cannot be lower than current version",
     "versionConflict": "A newer version \"{{current}}\" exists. Please use \"{{suggested}}\"",
     "inProgressSaveWarning": "You are in an iteration. Make sure your changes are saved.",
-    "inProgressExitWarning": "You are in an iteration. Please exit the current iteration first."
+    "inProgressExitWarning": "You are in an iteration. Please exit the current iteration first.",
+    "unsavedApiSwitchBlocked": "This API has unsaved changes. Please save before switching to another API.",
+    "unsavedApiBeforeComplete": "This API has unsaved changes. Please save before completing the iteration or submitting for approval."
   },
   "category": {
     "add": "Add Category",

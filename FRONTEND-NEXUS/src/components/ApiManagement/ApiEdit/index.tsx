@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
     Button,
     Space,
@@ -13,6 +13,7 @@ import BriefInfoEdit from "./BriefInfoEdit";
 import {
     transformReqParamsToApiInput,
     transformRespParamsToApiInput,
+    serializeApiFormSnapshot,
 } from "./utils";
 import type {
     ApiDetail,
@@ -44,21 +45,26 @@ interface ApiEditHandlers {
 
 interface ApiEditProps {
     loading: boolean;
+    /** 仅 API 详情拉取中为 true；勿把迭代列表刷新算入，避免保存后误触发脏状态 */
+    detailLoading?: boolean;
     apiDetail: ApiDetail | ApiDraftDetail;
     readOnly?: boolean;
     serviceUuid?: string;
     currentVersion?: string;
     serviceIterationId?: number;
+    onDirtyChange?: (dirty: boolean) => void;
     handlers: ApiEditHandlers;
 }
 
 const ApiEdit: React.FC<ApiEditProps> = ({
     loading,
+    detailLoading,
     apiDetail,
     readOnly = false,
     serviceUuid,
     currentVersion,
     serviceIterationId,
+    onDirtyChange,
     handlers: { handleSaveApiDraft, handleCopyApi, handleDeleteApi },
 }) => {
     const { t } = useTranslation();
@@ -67,6 +73,18 @@ const ApiEdit: React.FC<ApiEditProps> = ({
     const [isDraft, setIsDraft] = useState(false);
     const [reqParamsActiveTab, setReqParamsActiveTab] = useState("query");
     const [rejectSubmit, setRejectSubmit] = useState(false); // 是否由于表单填写不全拒绝提交
+    const baselineRef = useRef("");
+    const isHydratingRef = useRef(false);
+    const detailLoadingResolved = detailLoading ?? loading;
+
+    const syncDirtyState = () => {
+        if (readOnly) {
+            setIsDraft(false);
+            return;
+        }
+        const current = serializeApiFormSnapshot(form.getFieldsValue());
+        setIsDraft(current !== baselineRef.current);
+    };
 
     const getFirstTabWithValue = () => {
         if (!apiDetail.request_params_by_location) {
@@ -84,10 +102,34 @@ const ApiEdit: React.FC<ApiEditProps> = ({
     };
 
     useEffect(() => {
-        form.setFieldsValue(apiDetail);
         setIsDraft(false);
+    }, [apiDetail.id]);
+
+    useEffect(() => {
+        if (detailLoadingResolved || !apiDetail?.id) {
+            return;
+        }
+
+        isHydratingRef.current = true;
+        form.setFieldsValue(apiDetail);
         setReqParamsActiveTab(getFirstTabWithValue());
-    }, [apiDetail, form]);
+
+        const timer = window.setTimeout(() => {
+            baselineRef.current = serializeApiFormSnapshot(form.getFieldsValue());
+            setIsDraft(false);
+            onDirtyChange?.(false);
+            isHydratingRef.current = false;
+        }, 0);
+
+        return () => {
+            window.clearTimeout(timer);
+            isHydratingRef.current = false;
+        };
+    }, [apiDetail.id, detailLoadingResolved, apiDetail, form, onDirtyChange]);
+
+    useEffect(() => {
+        onDirtyChange?.(isDraft);
+    }, [isDraft, onDirtyChange]);
 
     // 提交本次apiDraft改动
     const handleSubmit = async () => {
@@ -159,7 +201,9 @@ const ApiEdit: React.FC<ApiEditProps> = ({
             };
         try {
             const res = await handleSaveApiDraft(data);
+            baselineRef.current = serializeApiFormSnapshot(values);
             setIsDraft(false);
+            onDirtyChange?.(false);
             Message.success(
                 resolveApiMessage(res.message, "toast.saveApiSuccess"),
             );
@@ -218,15 +262,17 @@ const ApiEdit: React.FC<ApiEditProps> = ({
                     </Space>
                 </div>
                 <Form
+                    key={apiDetail.id}
                     form={form}
                     layout="vertical"
                     scrollToFirstError
                     initialValues={apiDetail}
                     disabled={readOnly}
                     onValuesChange={() => {
-                        if (!readOnly) {
-                            setIsDraft(true);
+                        if (readOnly || isHydratingRef.current) {
+                            return;
                         }
+                        syncDirtyState();
                     }}
                 >
                     <BriefInfoEdit />

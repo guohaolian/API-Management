@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Tree, Input, Button, IconDelete } from "@cloud-materials/common";
 
 import styles from "../index.module.less";
-import { confirmAction, inIterationWarning } from "@/utils";
+import { confirmAction } from "@/utils";
 import { CloseIconCAM, OpenIconCAM } from "@/assets/icons";
 
 const { Search } = Input;
@@ -38,15 +38,24 @@ interface ApiListHandlers {
 interface ApiListProps {
     inIteration: boolean;
     isLatest: boolean;
+    autoSelectFirst?: boolean;
+    selectedApiId: number;
     treeData: any[];
     handlers: ApiListHandlers;
-    setSelectedApiId: (apiId: number) => void;
+    onSelectApi: (apiId: number) => void;
 }
 
 const ApiList: React.FC<ApiListProps> = (props) => {
     const { t } = useTranslation();
-    const { inIteration, isLatest, treeData, handlers, setSelectedApiId } =
-        props;
+    const {
+        inIteration,
+        isLatest,
+        autoSelectFirst = true,
+        selectedApiId,
+        treeData,
+        handlers,
+        onSelectApi,
+    } = props;
 
     const { handleUpdateApiCategory, handleDeleteCategory } = handlers;
 
@@ -97,12 +106,20 @@ const ApiList: React.FC<ApiListProps> = (props) => {
     }, [expandedKeys]);
 
     useEffect(() => {
-        if (!firstOptionKey) {
+        if (!autoSelectFirst || !firstOptionKey) {
             return;
         }
-        setSelectedApiId(Number(firstOptionKey));
-        setSelectedKeys([firstOptionKey]);
-    }, [firstOptionKey]);
+        onSelectApi(Number(firstOptionKey));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [autoSelectFirst, firstOptionKey]);
+
+    useEffect(() => {
+        if (selectedApiId > 0) {
+            setSelectedKeys([String(selectedApiId)]);
+        } else {
+            setSelectedKeys([]);
+        }
+    }, [selectedApiId]);
 
     useEffect(() => {
         if (searchKeyword.trim()) {
@@ -120,19 +137,15 @@ const ApiList: React.FC<ApiListProps> = (props) => {
     };
 
     const handleSelectApi = (keys: string[]) => {
-        inIterationWarning(
-            () => {
-                const apiId = Number(keys[0]);
-                if (Number.isNaN(apiId) || apiId <= 0) {
-                    setSelectedApiId(-1);
-                    return;
-                }
-                setSelectedApiId(apiId);
-                setSelectedKeys(keys);
-            },
-            inIteration,
-            "warning"
-        );
+        const apiId = Number(keys[0]);
+        if (Number.isNaN(apiId) || apiId <= 0) {
+            onSelectApi(-1);
+            return;
+        }
+        if (apiId === selectedApiId) {
+            return;
+        }
+        onSelectApi(apiId);
     };
 
     const handleDrag = (info: any) => {

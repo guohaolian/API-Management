@@ -6,7 +6,6 @@ import {
     Breadcrumb,
     Button,
     Message,
-    Divider,
     Dropdown,
     IconLoading,
     IconUserGroup,
@@ -468,189 +467,235 @@ const Header: React.FC<HeaderProps> = (props) => {
                     )}
                 </Breadcrumb>
             </div>
-            <Space
-                size={0}
-                split={<Divider type="vertical" style={{ margin: "0 16px" }} />}
-            >
-                <Popover
-                    position="bottom"
-                    content={serviceMembersByRoleContent}
-                    style={{ whiteSpace: "nowrap", maxWidth: "none" }}
-                >
-                    <Tooltip content={translate("apiManagement.clickToCopy")}>
-                        <Text
-                            style={{
-                                fontSize: 16,
-                                fontWeight: 600,
-                                cursor: "pointer",
-                            }}
-                            onClick={() => copyToClipboard(serviceUuid)}
+            <div className={styles.serviceHeaderToolbar}>
+                <div className={styles.serviceHeaderMeta}>
+                    <div className={styles.serviceHeaderMetaItem}>
+                        <Popover
+                            position="bottom"
+                            content={serviceMembersByRoleContent}
+                            style={{ whiteSpace: "nowrap", maxWidth: "none" }}
                         >
-                            {serviceUuid}
-                        </Text>
-                    </Tooltip>
-                </Popover>
-
-                <Select
-                    bordered={false}
-                    size="large"
-                    value={currentVersion}
-                    onChange={(value) => {
-                        setCurrentVersion(value);
-                    }}
-                    triggerProps={{
-                        autoAlignPopupWidth: false,
-                        autoAlignPopupMinWidth: true,
-                        position: "bl",
-                    }}
-                    prefix={
-                        isLatest ? (
-                            <Tag
-                                size="small"
-                                color="green"
-                                style={{ marginRight: 8 }}
+                            <Tooltip
+                                content={translate(
+                                    "apiManagement.clickToCopy",
+                                )}
                             >
-                                {translate("apiManagement.latestVersion")}
-                            </Tag>
-                        ) : (
-                            <Tag
-                                size="small"
-                                color="blue"
-                                style={{ marginRight: 8 }}
-                            >
-                                {translate("apiManagement.notLatestVersion")}
-                            </Tag>
-                        )
-                    }
-                    style={{
-                        color: "#000",
-                        fontWeight: 600,
-                    }}
-                >
-                    {versions &&
-                        versions.map((item) => (
-                            <Select.Option
-                                key={item.version}
-                                value={item.version}
-                            >
-                                <Space>
-                                    <Text className={styles.serviceVersion}>
-                                        {item.version}
-                                    </Text>
-                                </Space>
-                            </Select.Option>
-                        ))}
-                </Select>
-                <span className={styles.userInfo}>
-                    <Text className={styles.serviceAvatarTip}>
-                        {isLatest
-                            ? translate("apiManagement.serviceOwner")
-                            : translate("apiManagement.versionOwner")}
-                    </Text>
-                    {userAvatar([personInCharge], 32)}
-                </span>
-                {(maintainersHere.length > 0 || isServiceOwnerOrIsL0) &&
-                    isLatest && (
-                        <Space size={10}>
-                            <span className={styles.userInfo}>
-                                <Text className={styles.serviceAvatarTip}>
-                                    {translate("apiManagement.serviceMaintainers")}
-                                </Text>
-                                {userAvatar(maintainersHere, 32, 5)}
-                            </span>
-                            {isServiceOwnerOrIsL0 && (
-                                <Select
-                                    mode="multiple"
-                                    showSearch
-                                    filterOption={false}
-                                    onSearch={debounceGetMaintainerOptions}
-                                    options={options}
-                                    value={maintainersHere.map((m) => m.id)}
-                                    placeholder={translate(
-                                        "apiManagement.searchMaintainerPlaceholder",
-                                    )}
+                                <Text
                                     style={{
-                                        width: 200,
+                                        fontSize: 16,
+                                        fontWeight: 600,
+                                        cursor: "pointer",
                                     }}
-                                    triggerProps={{
-                                        autoAlignPopupWidth: false,
-                                        autoAlignPopupMinWidth: true,
-                                        position: "bl",
-                                    }}
-                                    prefix={
-                                        switchLoading ? (
-                                            <IconLoading
-                                                style={{
-                                                    marginLeft: 6,
-                                                }}
-                                            />
-                                        ) : (
-                                            <IconUserGroup
-                                                style={{
-                                                    marginLeft: 6,
-                                                }}
-                                            />
-                                        )
+                                    onClick={() =>
+                                        copyToClipboard(serviceUuid)
                                     }
-                                    renderTag={() => null}
-                                    notFoundContent={null}
-                                    onChange={(val) => {
-                                        if (switchLoading) {
-                                            return;
-                                        }
-                                        const newIds = val as number[];
-                                        const currentIds = maintainersHere.map(
-                                            (m) => m.id,
-                                        );
-                                        // 找出新增的维护者
-                                        const addedId = newIds.find(
-                                            (id) => !currentIds.includes(id),
-                                        );
-                                        // 找出移除的维护者
-                                        const removedId = currentIds.find(
-                                            (id) => !newIds.includes(id),
-                                        );
+                                >
+                                    {serviceUuid}
+                                </Text>
+                            </Tooltip>
+                        </Popover>
+                    </div>
 
-                                        // 执行添加或移除操作
-                                        if (addedId) {
-                                            const addedMaintainer =
-                                                maintainerOptions.find(
-                                                    (i) =>
-                                                        i.value.id === addedId,
-                                                )?.value;
-                                            if (addedMaintainer) {
-                                                handleAddOrRemoveServiceMaintainer(
-                                                    addedMaintainer,
-                                                );
-                                            }
-                                        } else if (removedId) {
-                                            const removedMaintainer =
-                                                maintainersHere.find(
-                                                    (i) => i.id === removedId,
-                                                );
-                                            if (removedMaintainer) {
-                                                handleAddOrRemoveServiceMaintainer(
-                                                    removedMaintainer,
-                                                );
-                                            }
-                                        }
-                                    }}
-                                />
-                            )}
-                        </Space>
-                    )}
-                <Space size={10}>
-                    {isLatest && isServiceOwner && onUpdateApprovalSetting && (
-                        <Space size={6}>
-                            <Text type="secondary" style={{ fontSize: 12 }}>
-                                {translate("approval.requireApproval")}
+                    <div className={styles.serviceHeaderMetaItem}>
+                        <Select
+                            bordered={false}
+                            size="large"
+                            value={currentVersion}
+                            onChange={(value) => {
+                                setCurrentVersion(value);
+                            }}
+                            triggerProps={{
+                                autoAlignPopupWidth: false,
+                                autoAlignPopupMinWidth: true,
+                                position: "bl",
+                            }}
+                            prefix={
+                                isLatest ? (
+                                    <Tag
+                                        size="small"
+                                        color="green"
+                                        style={{ marginRight: 8 }}
+                                    >
+                                        {translate(
+                                            "apiManagement.latestVersion",
+                                        )}
+                                    </Tag>
+                                ) : (
+                                    <Tag
+                                        size="small"
+                                        color="blue"
+                                        style={{ marginRight: 8 }}
+                                    >
+                                        {translate(
+                                            "apiManagement.notLatestVersion",
+                                        )}
+                                    </Tag>
+                                )
+                            }
+                            style={{
+                                color: "#000",
+                                fontWeight: 600,
+                            }}
+                        >
+                            {versions &&
+                                versions.map((item) => (
+                                    <Select.Option
+                                        key={item.version}
+                                        value={item.version}
+                                    >
+                                        <Space>
+                                            <Text
+                                                className={
+                                                    styles.serviceVersion
+                                                }
+                                            >
+                                                {item.version}
+                                            </Text>
+                                        </Space>
+                                    </Select.Option>
+                                ))}
+                        </Select>
+                    </div>
+
+                    <div className={styles.serviceHeaderMetaItem}>
+                        <span className={styles.userInfo}>
+                            <Text className={styles.serviceAvatarTip}>
+                                {isLatest
+                                    ? translate(
+                                          "apiManagement.serviceOwner",
+                                      )
+                                    : translate(
+                                          "apiManagement.versionOwner",
+                                      )}
                             </Text>
-                            <Switch
-                                checked={requiresIterationApproval}
-                                onChange={onUpdateApprovalSetting}
-                            />
-                        </Space>
-                    )}
+                            {userAvatar([personInCharge], 32)}
+                        </span>
+                    </div>
+
+                    {(maintainersHere.length > 0 || isServiceOwnerOrIsL0) &&
+                        isLatest && (
+                            <div className={styles.serviceHeaderMetaItem}>
+                                <Space size={10}>
+                                    <span className={styles.userInfo}>
+                                        <Text
+                                            className={styles.serviceAvatarTip}
+                                        >
+                                            {translate(
+                                                "apiManagement.serviceMaintainers",
+                                            )}
+                                        </Text>
+                                        {userAvatar(maintainersHere, 32, 5)}
+                                    </span>
+                                    {isServiceOwnerOrIsL0 && (
+                                        <Select
+                                            mode="multiple"
+                                            showSearch
+                                            filterOption={false}
+                                            onSearch={
+                                                debounceGetMaintainerOptions
+                                            }
+                                            options={options}
+                                            value={maintainersHere.map(
+                                                (m) => m.id,
+                                            )}
+                                            placeholder={translate(
+                                                "apiManagement.searchMaintainerPlaceholder",
+                                            )}
+                                            style={{
+                                                width: 200,
+                                            }}
+                                            triggerProps={{
+                                                autoAlignPopupWidth: false,
+                                                autoAlignPopupMinWidth: true,
+                                                position: "bl",
+                                            }}
+                                            prefix={
+                                                switchLoading ? (
+                                                    <IconLoading
+                                                        style={{
+                                                            marginLeft: 6,
+                                                        }}
+                                                    />
+                                                ) : (
+                                                    <IconUserGroup
+                                                        style={{
+                                                            marginLeft: 6,
+                                                        }}
+                                                    />
+                                                )
+                                            }
+                                            renderTag={() => null}
+                                            notFoundContent={null}
+                                            onChange={(val) => {
+                                                if (switchLoading) {
+                                                    return;
+                                                }
+                                                const newIds = val as number[];
+                                                const currentIds =
+                                                    maintainersHere.map(
+                                                        (m) => m.id,
+                                                    );
+                                                const addedId = newIds.find(
+                                                    (id) =>
+                                                        !currentIds.includes(
+                                                            id,
+                                                        ),
+                                                );
+                                                const removedId =
+                                                    currentIds.find(
+                                                        (id) =>
+                                                            !newIds.includes(
+                                                                id,
+                                                            ),
+                                                    );
+
+                                                if (addedId) {
+                                                    const addedMaintainer =
+                                                        maintainerOptions.find(
+                                                            (i) =>
+                                                                i.value.id ===
+                                                                addedId,
+                                                        )?.value;
+                                                    if (addedMaintainer) {
+                                                        handleAddOrRemoveServiceMaintainer(
+                                                            addedMaintainer,
+                                                        );
+                                                    }
+                                                } else if (removedId) {
+                                                    const removedMaintainer =
+                                                        maintainersHere.find(
+                                                            (i) =>
+                                                                i.id ===
+                                                                removedId,
+                                                        );
+                                                    if (removedMaintainer) {
+                                                        handleAddOrRemoveServiceMaintainer(
+                                                            removedMaintainer,
+                                                        );
+                                                    }
+                                                }
+                                            }}
+                                        />
+                                    )}
+                                </Space>
+                            </div>
+                        )}
+                </div>
+
+                <div className={styles.serviceHeaderActions}>
+                    {isLatest &&
+                        isServiceOwner &&
+                        onUpdateApprovalSetting && (
+                            <label className={styles.approvalSwitch}>
+                                <Text type="secondary" style={{ fontSize: 12 }}>
+                                    {translate("approval.requireApproval")}
+                                </Text>
+                                <Switch
+                                    checked={requiresIterationApproval}
+                                    onChange={onUpdateApprovalSetting}
+                                />
+                            </label>
+                        )}
                     {iterationActionButton}
                     {inIteration && onOpenAudit && (
                         <Button type="text" onClick={onOpenAudit}>
@@ -666,16 +711,14 @@ const Header: React.FC<HeaderProps> = (props) => {
                             {translate("apiManagement.versionDiff")}
                         </Button>
                     )}
-                    {/* <Badge text="New"> */}
-                        <Button
+                    <Button
                         type="default"
                         status="success"
                         onClick={exportAndDownloadOpenAPI}
                         loading={exportLoading}
-                        >
+                    >
                         {translate("apiManagement.exportOpenapi")}
-                        </Button>
-                    {/* </Badge> */}
+                    </Button>
                     {inIteration && (
                         <>
                             <input
@@ -695,8 +738,8 @@ const Header: React.FC<HeaderProps> = (props) => {
                             </Button>
                         </>
                     )}
-                </Space>
-            </Space>
+                </div>
+            </div>
             <VersionDiffModal
                 visible={versionDiffVisible}
                 serviceUuid={serviceUuid}

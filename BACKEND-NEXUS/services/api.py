@@ -33,6 +33,7 @@ from services.iteration_audit import append_iteration_audit
 # 辅助函数：权限校验与参数组织器（将 ORM 参数集合转换为前端友好结构）
 from services.utils import (
     checkServiceIterationPermission,
+    isServiceOwnerOrMaintainer,
     organizeReqParams,
     organizeRespParams,
 )
@@ -161,25 +162,24 @@ def apiGetApiById(
     # - 在 草稿（history）场景时，允许 iteration 的 creator 查看，同时 owner/maintainer 也有权限。
     # 当非管理员（L0）时，执行更细粒度权限判定
     if user.level.value != 0:
-        if (
-            is_latest
-            and api.service.owner_id != user_id
-            and user not in api.service.maintainers
-        ):
-            return {
-                "status": -3,
-                "message": "You are neither the owner nor the maintainer of this service",
-            }
-        elif (
-            not is_latest
-            and api.service_iteration.creator_id != user_id
-            and user not in api.service_iteration.service.maintainers
-            and api.service_iteration.service.owner_id != user_id
-        ):
-            return {
-                "status": -4,
-                "message": "You are neither the owner nor the maintainer of this service, nor the creator of this service iteration",
-            }
+        if is_latest:
+            if not isServiceOwnerOrMaintainer(api.service, user_id, user):
+                return {
+                    "status": -3,
+                    "message": "You are neither the owner nor the maintainer of this service",
+                }
+        else:
+            iteration = api.service_iteration
+            if (
+                iteration.creator_id != user_id
+                and not isServiceOwnerOrMaintainer(
+                    iteration.service, user_id, user
+                )
+            ):
+                return {
+                    "status": -4,
+                    "message": "You are neither the owner nor the maintainer of this service, nor the creator of this service iteration",
+                }
     # 把 ORM 的关联集合转换成前端需要的分组结构，调用封装好的工具函数
     request_params_by_location = organizeReqParams(api.request_params)
     response_params_by_status_code = organizeRespParams(api.response_params)

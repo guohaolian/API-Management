@@ -83,6 +83,37 @@ const processRespItems = (
     }));
 };
 
+/** 将 API 编辑表单快照序列化为稳定字符串，用于判断是否有未保存改动。 */
+export const serializeApiFormSnapshot = (
+    values: Record<string, unknown>,
+): string => {
+    const responseMap = (values.response_params_by_status_code ??
+        {}) as Record<string, unknown[]>;
+    const normalizedResponse: Record<string, unknown[]> = {};
+    for (const code of Object.keys(responseMap).sort(
+        (a, b) => Number(a) - Number(b),
+    )) {
+        normalizedResponse[code] = responseMap[code] ?? [];
+    }
+
+    const requestMap = (values.request_params_by_location ??
+        {}) as Record<string, unknown[]>;
+    const normalizedRequest: Record<string, unknown[]> = {};
+    for (const key of Object.keys(requestMap).sort()) {
+        normalizedRequest[key] = requestMap[key] ?? [];
+    }
+
+    return JSON.stringify({
+        name: values.name ?? "",
+        method: values.method ?? "",
+        path: values.path ?? "",
+        description: values.description ?? "",
+        level: values.level ?? "P2",
+        request_params_by_location: normalizedRequest,
+        response_params_by_status_code: normalizedResponse,
+    });
+};
+
 // Tree manipulation utilities for ParamsTable
 export const updateTreeItem = (
     list: ParamItem[],

@@ -26,6 +26,15 @@ from database.models import (
 from database.enums import ParamLocation, ParamType, IterationApprovalStatus
 
 
+def isServiceOwnerOrMaintainer(service: Service, user_id: int, user: User) -> bool:
+    """判断用户是否为服务 owner、maintainer 或 L0 管理员。"""
+    if user.level.value == 0:  # type: ignore
+        return True
+    if service.owner_id == user_id:
+        return True
+    return any(m.id == user_id for m in service.maintainers)
+
+
 # service 版本迭代行为权限校验（校验service_iteration是否存在，是否已提交，是否为当前user有权限操作）
 def checkServiceIterationPermission(
     db: Session,

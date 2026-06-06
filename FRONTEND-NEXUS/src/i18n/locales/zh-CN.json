@@ -125,7 +125,9 @@
     "versionTooLow": "新版本号不得小于当前版本号",
     "versionConflict": "当前有新的版本号“{{current}}”，请使用更新的版本号“{{suggested}}”",
     "inProgressSaveWarning": "当前在迭代中，请确保已保存当前改动",
-    "inProgressExitWarning": "当前在迭代中，请先退出当前迭代"
+    "inProgressExitWarning": "当前在迭代中，请先退出当前迭代",
+    "unsavedApiSwitchBlocked": "当前 API 有未保存的修改，请先保存后再切换",
+    "unsavedApiBeforeComplete": "当前 API 有未保存的修改，请先保存后再完成迭代或提交审批"
   },
   "category": {
     "add": "添加分类",
