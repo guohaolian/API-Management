@@ -8,6 +8,7 @@ import {
     Popover,
 } from "@cloud-materials/common";
 import { t } from "i18next";
+import { useTranslation } from "react-i18next";
 import { resolveApiMessage, toastFromError } from "@/i18n/apiMessage";
 
 import {
@@ -314,6 +315,7 @@ export const useService = () => {
 export const useThisService = (service_uuid: string) => {
     const navigate = useNavigate();
     const { user } = useUser();
+    const { i18n } = useTranslation();
 
     const [loading, setLoading] = useState(false);
     const [versions, setVersions] = useState<
@@ -469,7 +471,7 @@ export const useThisService = (service_uuid: string) => {
         });
 
         return [...Array.from(categoryMap.values()), uncategorizedGroup];
-    }, [apiCategories, apis]);
+    }, [apiCategories, apis, i18n.language]);
 
     const handleAddCategory = useCallback(() => {
         const modal = CModal.openArcoForm({
@@ -997,6 +999,7 @@ export const useServiceIteration = (
     iterationId: number,
     apiCategories: ApiCategory[],
 ) => {
+    const { i18n } = useTranslation();
     const [loading, setLoading] = useState(false);
     const [iterationDetail, setIterationDetail] =
         useState<ServiceIterationDetail>({} as ServiceIterationDetail);
@@ -1098,7 +1101,7 @@ export const useServiceIteration = (
             });
 
         return [...Array.from(categoryMap.values()), uncategorizedGroup];
-    }, [apiCategories, apiDrafts]);
+    }, [apiCategories, apiDrafts, i18n.language]);
 
     const handleAddApi = useCallback(() => {
         const modal = CModal.openArcoForm({
