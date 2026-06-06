@@ -299,6 +299,7 @@
     "proposedVersion": "目标版本",
     "submittedBy": "提交人",
     "submittedAt": "提交时间",
+    "refresh": "刷新列表",
     "viewChanges": "查看变更",
     "approve": "通过",
     "reject": "驳回",

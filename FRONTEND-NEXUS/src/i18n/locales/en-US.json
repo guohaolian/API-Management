@@ -298,6 +298,7 @@
     "proposedVersion": "Target version",
     "submittedBy": "Submitted by",
     "submittedAt": "Submitted at",
+    "refresh": "Refresh list",
     "viewChanges": "View changes",
     "approve": "Approve",
     "reject": "Reject",

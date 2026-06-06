@@ -18,6 +18,7 @@ import {
 } from "@/services/service";
 import type { PendingIterationItem } from "@/services/service/types";
 import { resolveApiMessage, toastFromError } from "@/i18n/apiMessage";
+import { formatDateOrDateTime } from "@/utils";
 import VersionDiffModal from "@/components/ApiManagement/modals/VersionDiffModal";
 import styles from "./index.module.less";
 
@@ -136,7 +137,8 @@ const PendingApprovals: React.FC = () => {
             title: t("approval.submittedAt"),
             dataIndex: "submitted_at",
             width: 180,
-            render: (v: string | null) => v || "—",
+            render: (v: string | null) =>
+                v ? formatDateOrDateTime(v, "minute") : "—",
         },
         {
             title: t("common.operation"),
@@ -187,10 +189,17 @@ const PendingApprovals: React.FC = () => {
 
     return (
         <div className={styles.page}>
-            <Title heading={5}>{t("approval.pendingTitle")}</Title>
-            <Text type="secondary" style={{ display: "block", marginBottom: 16 }}>
-                {t("approval.pendingHint")}
-            </Text>
+            <div className={styles.header}>
+                <div>
+                    <Title heading={5}>{t("approval.pendingTitle")}</Title>
+                    <Text type="secondary" className={styles.hint}>
+                        {t("approval.pendingHint")}
+                    </Text>
+                </div>
+                <Button type="primary" status="success" loading={loading} onClick={() => fetchList()}>
+                    {t("approval.refresh")}
+                </Button>
+            </div>
             <Table
                 loading={loading}
                 columns={columns}
