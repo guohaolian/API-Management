@@ -26,32 +26,46 @@ def _can_direct_commit(service: Service, user_id: int, user: User) -> bool:
     return not service.requires_iteration_approval or _is_owner(user_id, service) or _is_l0(user)
 
 
-def _notify_owner_submit(db: Session, service_iteration: ServiceIteration, operator: User) -> None:
+async def _notify_owner_submit(
+    service_iteration: ServiceIteration, operator: User
+) -> None:
     service = service_iteration.service
     owner = service.owner
     if not owner or not owner.email:
         return
-    import asyncio
-
-    async def _send():
-        await send_email(
-            to_email=[owner.email],
-            subject=f"[NEXUS] 迭代待审批：{service.service_uuid}",
-            content=(
-                f"服务 {service.service_uuid} 有新的迭代提交待您审批。\n"
-                f"提议版本：{service_iteration.proposed_version}\n"
-                f"提交人：{operator.nickname} ({operator.username})\n"
-            ),
+    mail_res = await send_email(
+        to_email=[owner.email],
+        subject=f"[NEXUS] 迭代待审批：{service.service_uuid}",
+        content=(
+            f"服务 {service.service_uuid} 有新的迭代提交待您审批。\n"
+            f"提议版本：{service_iteration.proposed_version}\n"
+            f"提交人：{operator.nickname} ({operator.username})\n"
+        ),
+    )
+    if mail_res["status"] != 200:
+        print(
+            f"Send submit notification failed: {mail_res.get('message', 'Unknown error')}"
         )
 
-    try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            asyncio.create_task(_send())
-        else:
-            loop.run_until_complete(_send())
-    except Exception as e:
-        print(f"Send submit notification failed: {e}")
+
+async def _notify_reject(
+    service: Service, submitter: User, review_comment: str
+) -> None:
+    if not submitter.email:
+        return
+    mail_res = await send_email(
+        to_email=[submitter.email],
+        subject=f"[NEXUS] 迭代已驳回：{service.service_uuid}",
+        content=(
+            f"您对服务 {service.service_uuid} 的迭代提交已被驳回。\n"
+            f"意见：{review_comment}\n"
+            f"您可在同一迭代中修改后重新提交。\n"
+        ),
+    )
+    if mail_res["status"] != 200:
+        print(
+            f"Send reject notification failed: {mail_res.get('message', 'Unknown error')}"
+        )
 
 
 async def _notify_commit(
@@ -72,7 +86,7 @@ async def _notify_commit(
     )
 
 
-def serviceSubmitIterationForApproval(
+async def serviceSubmitIterationForApproval(
     db: Session, service_iteration_id: int, new_version: str, user_id: int
 ) -> dict:
     check_res = checkServiceIterationPermission(
@@ -113,7 +127,10 @@ def serviceSubmitIterationForApproval(
         {"proposed_version": new_version},
     )
     db.commit()
-    _notify_owner_submit(db, service_iteration, user)
+    try:
+        await _notify_owner_submit(service_iteration, user)
+    except Exception as e:
+        print(f"Send submit notification failed: {e}")
     return {
         "status": 200,
         "message": "Submit iteration for approval success",
@@ -169,7 +186,7 @@ async def serviceApproveIteration(
     return res
 
 
-def serviceRejectIteration(
+async def serviceRejectIteration(
     db: Session,
     service_iteration_id: int,
     user_id: int,
@@ -208,25 +225,8 @@ def serviceRejectIteration(
 
     submitter = service_iteration.submitted_by
     if submitter and submitter.email:
-        import asyncio
-
-        async def _send():
-            await send_email(
-                to_email=[submitter.email],
-                subject=f"[NEXUS] 迭代已驳回：{service.service_uuid}",
-                content=(
-                    f"您对服务 {service.service_uuid} 的迭代提交已被驳回。\n"
-                    f"意见：{review_comment}\n"
-                    f"您可在同一迭代中修改后重新提交。\n"
-                ),
-            )
-
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                asyncio.create_task(_send())
-            else:
-                loop.run_until_complete(_send())
+            await _notify_reject(service, submitter, review_comment)
         except Exception as e:
             print(f"Send reject notification failed: {e}")
 

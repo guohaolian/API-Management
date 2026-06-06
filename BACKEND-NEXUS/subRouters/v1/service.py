@@ -463,7 +463,7 @@ def importOpenapiToNewIteration(request: Request):
 
 # ---- 迭代审批与变更审计 ----
 @serviceRouterV1.post("/submitIterationForApproval", auth_required=True)
-def submitIterationForApproval(request: Request):
+async def submitIterationForApproval(request: Request):
     data = request.json()
     service_iteration_id = data.get("service_iteration_id")
     new_version = data.get("new_version")
@@ -475,7 +475,7 @@ def submitIterationForApproval(request: Request):
         )
     user_id = userGetUserIdByAccessToken(request=request)
     with session() as db:
-        res = serviceSubmitIterationForApproval(
+        res = await serviceSubmitIterationForApproval(
             db=db,
             service_iteration_id=int(service_iteration_id),
             new_version=new_version,
@@ -507,7 +507,7 @@ async def approveIteration(request: Request):
 
 
 @serviceRouterV1.post("/rejectIteration", auth_required=True)
-def rejectIteration(request: Request):
+async def rejectIteration(request: Request):
     data = request.json()
     service_iteration_id = data.get("service_iteration_id")
     review_comment = data.get("review_comment")
@@ -519,7 +519,7 @@ def rejectIteration(request: Request):
         )
     user_id = userGetUserIdByAccessToken(request=request)
     with session() as db:
-        res = serviceRejectIteration(
+        res = await serviceRejectIteration(
             db=db,
             service_iteration_id=int(service_iteration_id),
             user_id=user_id,
