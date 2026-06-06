@@ -30,6 +30,7 @@ import {
     StartIteration,
     SubmitIterationForApproval,
     UpdateServiceApprovalSetting,
+    UpdateDocsPublicSetting,
 } from "@/services/service";
 import { useUser } from "@/hooks/useUser";
 import type {
@@ -667,12 +668,14 @@ export const useThisService = (service_uuid: string) => {
             is_deleted: nested?.is_deleted ?? false,
             requires_iteration_approval:
                 nested?.requires_iteration_approval ?? false,
+            docs_public: nested?.docs_public ?? false,
         };
     }, [serviceDetail, service_uuid]);
 
     const serviceId = serviceMeta.id;
     const requiresIterationApproval =
         !!serviceMeta.requires_iteration_approval;
+    const docsPublic = !!serviceMeta.docs_public;
     const isServiceOwner =
         serviceMeta.owner_id === user?.id || user?.level === 0;
 
@@ -951,6 +954,46 @@ export const useThisService = (service_uuid: string) => {
         [serviceId],
     );
 
+    const handleUpdateDocsPublicSetting = useCallback(
+        async (enabled: boolean) => {
+            if (!serviceId) return false;
+            try {
+                const res = await UpdateDocsPublicSetting({
+                    service_id: serviceId,
+                    docs_public: enabled,
+                });
+                if (res.status !== 200) {
+                    throw new Error(res.message);
+                }
+                setServiceDetail((prev) => {
+                    if ("docs_public" in prev) {
+                        return { ...prev, docs_public: enabled };
+                    }
+                    if ("service" in prev && prev.service) {
+                        return {
+                            ...prev,
+                            service: {
+                                ...prev.service,
+                                docs_public: enabled,
+                            },
+                        };
+                    }
+                    return prev;
+                });
+                Message.success(
+                    resolveApiMessage(res.message, "docPortal.settingSuccess"),
+                );
+                return true;
+            } catch (err: unknown) {
+                Message.warning(
+                    toastFromError(err, "docPortal.settingFailed"),
+                );
+                return false;
+            }
+        },
+        [serviceId],
+    );
+
     const exitIteration = () => {
         setInIteration(false);
         setIterationId(-1);
@@ -991,6 +1034,8 @@ export const useThisService = (service_uuid: string) => {
         requiresIterationApproval,
         isServiceOwner,
         handleUpdateApprovalSetting,
+        docsPublic,
+        handleUpdateDocsPublicSetting,
     };
 };
 

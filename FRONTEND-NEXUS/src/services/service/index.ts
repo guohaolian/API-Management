@@ -41,6 +41,8 @@ import type {
     GetIterationChangePreviewResponse,
     UpdateServiceApprovalSettingRequest,
     UpdateServiceApprovalSettingResponse,
+    UpdateDocsPublicSettingRequest,
+    UpdateDocsPublicSettingResponse,
 } from "./types";
 
 const prefix = "/v1/service";
@@ -290,6 +292,15 @@ export const UpdateServiceApprovalSetting = async (
 ) => {
     return api.post<UpdateServiceApprovalSettingResponse>(
         `${prefix}/updateServiceApprovalSetting`,
+        data
+    );
+};
+
+export const UpdateDocsPublicSetting = async (
+    data: UpdateDocsPublicSettingRequest
+) => {
+    return api.post<UpdateDocsPublicSettingResponse>(
+        `${prefix}/updateDocsPublicSetting`,
         data
     );
 };

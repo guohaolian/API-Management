@@ -330,6 +330,24 @@
     "changePreviewTitle": "Iteration change preview",
     "enableSwitchHint": "To use the approval flow, turn on \"Require approval\" in the top bar first. The main button becomes \"Submit for approval\"; owners can choose \"Publish directly\" from the dropdown."
   },
+  "docPortal": {
+    "title": "API Documentation",
+    "openPortal": "Doc portal",
+    "publicSwitch": "Public docs",
+    "publicBadge": "Public",
+    "privatePreview": "Private preview",
+    "readOnlyHint": "Read-only documentation view. Edit APIs in API Definition.",
+    "copyLink": "Copy link",
+    "backToManage": "Back to console",
+    "missingUuid": "Missing service UUID",
+    "missingUuidHint": "Open the portal via /docs?uuid=your/service/uuid",
+    "accessDenied": "Documentation unavailable",
+    "accessDeniedHint": "Public docs are disabled for this service. Ask the owner to enable them, or sign in with an authorized account to preview.",
+    "loadFailed": "Failed to load documentation",
+    "settingSuccess": "Documentation portal setting updated",
+    "settingFailed": "Failed to update documentation portal setting",
+    "noApis": "No APIs in this version"
+  },
   "audit": {
     "title": "Change audit",
     "empty": "No audit entries yet",

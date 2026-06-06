@@ -1,4 +1,5 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import VersionDiffModal from "../modals/VersionDiffModal";
 import debounce from "lodash/debounce";
 import {
@@ -58,8 +59,10 @@ interface HeaderProps {
     iterationReadOnly?: boolean;
     iterationApprovalStatus?: string;
     requiresIterationApproval?: boolean;
+    docsPublic?: boolean;
     isServiceOwner?: boolean;
     onUpdateApprovalSetting?: (enabled: boolean) => Promise<boolean>;
+    onUpdateDocsPublicSetting?: (enabled: boolean) => Promise<boolean>;
     onOpenAudit?: () => void;
     handlers: HeaderHandlers;
 }
@@ -77,8 +80,10 @@ const Header: React.FC<HeaderProps> = (props) => {
         iterationReadOnly = false,
         iterationApprovalStatus,
         requiresIterationApproval = false,
+        docsPublic = false,
         isServiceOwner = false,
         onUpdateApprovalSetting,
+        onUpdateDocsPublicSetting,
         onOpenAudit,
         handlers: {
             setCurrentVersion,
@@ -97,6 +102,7 @@ const Header: React.FC<HeaderProps> = (props) => {
     } = props;
 
     const { t: translate } = useTranslation();
+    const navigate = useNavigate();
     const { user, getUserByUsernameOrNicknameOrEmail } = useUser();
 
     const isServiceOwnerOrIsL0 =
@@ -685,6 +691,19 @@ const Header: React.FC<HeaderProps> = (props) => {
                 <div className={styles.serviceHeaderActions}>
                     {isLatest &&
                         isServiceOwner &&
+                        onUpdateDocsPublicSetting && (
+                            <label className={styles.approvalSwitch}>
+                                <Text type="secondary" style={{ fontSize: 12 }}>
+                                    {translate("docPortal.publicSwitch")}
+                                </Text>
+                                <Switch
+                                    checked={docsPublic}
+                                    onChange={onUpdateDocsPublicSetting}
+                                />
+                            </label>
+                        )}
+                    {isLatest &&
+                        isServiceOwner &&
                         onUpdateApprovalSetting && (
                             <label className={styles.approvalSwitch}>
                                 <Text type="secondary" style={{ fontSize: 12 }}>
@@ -711,6 +730,20 @@ const Header: React.FC<HeaderProps> = (props) => {
                             {translate("apiManagement.versionDiff")}
                         </Button>
                     )}
+                    <Button
+                        type="default"
+                        onClick={() => {
+                            const params = new URLSearchParams({
+                                uuid: serviceUuid,
+                            });
+                            if (currentVersion) {
+                                params.set("version", currentVersion);
+                            }
+                            navigate(`/docs?${params.toString()}`);
+                        }}
+                    >
+                        {translate("docPortal.openPortal")}
+                    </Button>
                     <Button
                         type="default"
                         status="success"

@@ -331,6 +331,24 @@
     "changePreviewTitle": "迭代变更预览",
     "enableSwitchHint": "若需走审批流程，请先在页面右上角打开「迭代需审批」。开启后主按钮为「提交审批」；Owner 可在下拉菜单中选择「直接发布」。"
   },
+  "docPortal": {
+    "title": "API 文档",
+    "openPortal": "文档门户",
+    "publicSwitch": "公开文档",
+    "publicBadge": "公开",
+    "privatePreview": "私有预览",
+    "readOnlyHint": "此为只读文档视图，接口变更请在 API 定义页进行。",
+    "copyLink": "复制链接",
+    "backToManage": "返回管理台",
+    "missingUuid": "缺少服务 UUID",
+    "missingUuidHint": "请通过 /docs?uuid=your/service/uuid 访问文档门户。",
+    "accessDenied": "无法访问文档",
+    "accessDeniedHint": "该服务未开启公开文档。请联系服务 Owner 开启，或使用有权限的账号登录后预览。",
+    "loadFailed": "加载文档失败",
+    "settingSuccess": "文档门户设置已更新",
+    "settingFailed": "更新文档门户设置失败",
+    "noApis": "该版本暂无 API"
+  },
   "audit": {
     "title": "变更审计",
     "empty": "暂无审计记录",

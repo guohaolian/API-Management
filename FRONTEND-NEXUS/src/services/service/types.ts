@@ -21,6 +21,7 @@ export interface ServiceItem {
     created_at: string;
     is_deleted: boolean;
     requires_iteration_approval?: boolean;
+    docs_public?: boolean;
     owner?: UserProfile | null;
 }
 
@@ -366,6 +367,15 @@ export interface UpdateServiceApprovalSettingRequest {
 
 export interface UpdateServiceApprovalSettingResponse extends BaseResponse {
     requires_iteration_approval: boolean;
+}
+
+export interface UpdateDocsPublicSettingRequest {
+    service_id: number;
+    docs_public: boolean;
+}
+
+export interface UpdateDocsPublicSettingResponse extends BaseResponse {
+    docs_public: boolean;
 }
 
 export type ServiceRange =

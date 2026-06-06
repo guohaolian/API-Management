@@ -34,6 +34,7 @@ from services.iteration_approval import (
     serviceGetIterationChangePreview,
     serviceUpdateServiceApprovalSetting,
 )
+from services.docs import serviceUpdateDocsPublicSetting
 
 
 # 创建子路由实例，前缀为 /v1/service
@@ -580,6 +581,27 @@ def getIterationChangePreview(request: Request):
         res = serviceGetIterationChangePreview(
             db=db,
             service_iteration_id=int(service_iteration_id),
+            user_id=user_id,
+        )
+    return res
+
+
+@serviceRouterV1.post("/updateDocsPublicSetting", auth_required=True)
+def updateDocsPublicSetting(request: Request):
+    data = request.json()
+    service_id = data.get("service_id")
+    if service_id is None or "docs_public" not in data:
+        return Response(
+            status_code=400,
+            description="service_id and docs_public are required",
+            headers={},
+        )
+    user_id = userGetUserIdByAccessToken(request=request)
+    with session() as db:
+        res = serviceUpdateDocsPublicSetting(
+            db=db,
+            service_id=int(service_id),
+            docs_public=bool(data["docs_public"]),
             user_id=user_id,
         )
     return res

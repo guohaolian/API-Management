@@ -41,6 +41,7 @@ interface ApiListProps {
     autoSelectFirst?: boolean;
     selectedApiId: number;
     treeData: any[];
+    readOnly?: boolean;
     handlers: ApiListHandlers;
     onSelectApi: (apiId: number) => void;
 }
@@ -53,6 +54,7 @@ const ApiList: React.FC<ApiListProps> = (props) => {
         autoSelectFirst = true,
         selectedApiId,
         treeData,
+        readOnly = false,
         handlers,
         onSelectApi,
     } = props;
@@ -247,12 +249,15 @@ const ApiList: React.FC<ApiListProps> = (props) => {
                     expandedKeys={expandedKeys}
                     blockNode
                     actionOnClick={["select", "expand"]}
-                    draggable={!inIteration && isLatest}
+                    draggable={!readOnly && !inIteration && isLatest}
                     onSelect={handleSelectApi}
                     onExpand={(keys) => setExpandedKeys((keys || []).map(String))}
                     onDrop={handleDrag}
                     // 删除分类按钮
                     renderExtra={(node) => {
+                        if (readOnly) {
+                            return null;
+                        }
                         const isCategoryNode =
                             !node.draggable &&
                             !node.selectable &&

@@ -19,6 +19,8 @@ const Detail: React.FC<{
     serviceUuid?: string;
     currentVersion?: string;
     serviceIterationId?: number;
+    showMock?: boolean;
+    emptyMessage?: string;
 }> = (props) => {
     const { t } = useTranslation();
     const {
@@ -28,6 +30,8 @@ const Detail: React.FC<{
         serviceUuid,
         currentVersion,
         serviceIterationId,
+        showMock = true,
+        emptyMessage,
     } = props;
 
     if (loading) {
@@ -40,7 +44,11 @@ const Detail: React.FC<{
 
     if (!apiDetail || Object.keys(apiDetail).length === 0) {
         return (
-            <BlankPage message={t("apiManagement.noApiStartIteration")} />
+            <BlankPage
+                message={
+                    emptyMessage || t("apiManagement.noApiStartIteration")
+                }
+            />
         );
     }
 
@@ -59,14 +67,18 @@ const Detail: React.FC<{
             <RequestParams apiDetail={apiDetail} />
             <Divider />
             <ResponseParams apiDetail={apiDetail} />
-            <Divider />
-            <MockConsole
-                apiDetail={apiDetail}
-                isLatest={isLatest}
-                serviceUuid={serviceUuid}
-                currentVersion={currentVersion}
-                serviceIterationId={serviceIterationId}
-            />
+            {showMock ? (
+                <>
+                    <Divider />
+                    <MockConsole
+                        apiDetail={apiDetail}
+                        isLatest={isLatest}
+                        serviceUuid={serviceUuid}
+                        currentVersion={currentVersion}
+                        serviceIterationId={serviceIterationId}
+                    />
+                </>
+            ) : null}
         </div>
     );
 };

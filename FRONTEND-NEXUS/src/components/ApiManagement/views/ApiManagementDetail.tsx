@@ -44,6 +44,8 @@ const ApiManagementDetail: React.FC<{ uuid: string }> = ({ uuid }) => {
         requiresIterationApproval,
         isServiceOwner,
         handleUpdateApprovalSetting,
+        docsPublic,
+        handleUpdateDocsPublicSetting,
     } = useThisService(uuid);
 
     const serviceUuid = useMemo(() => {
@@ -245,8 +247,10 @@ const ApiManagementDetail: React.FC<{ uuid: string }> = ({ uuid }) => {
                     iterationReadOnly={iterationReadOnly}
                     iterationApprovalStatus={iterationApprovalStatus}
                     requiresIterationApproval={requiresIterationApproval}
+                    docsPublic={docsPublic}
                     isServiceOwner={isServiceOwner}
                     onUpdateApprovalSetting={handleUpdateApprovalSetting}
+                    onUpdateDocsPublicSetting={handleUpdateDocsPublicSetting}
                     onOpenAudit={
                         inIteration && iterationId > 0
                             ? () => setAuditVisible(true)

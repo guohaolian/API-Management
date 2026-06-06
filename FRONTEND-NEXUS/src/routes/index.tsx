@@ -3,6 +3,8 @@ import Layout from "@/components/Layout";
 import ApiManagement from "@/components/ApiManagement";
 import ServiceManagement from "@/components/ServiceManagement";
 import PendingApprovals from "@/components/PendingApprovals";
+import DocPortal from "@/components/DocPortal";
+import DocPortalLayout from "@/components/DocPortal/DocPortalLayout";
 import { Message } from "@cloud-materials/common";
 import { t } from "i18next";
 
@@ -16,6 +18,16 @@ const requireAuthLoader = () => {
 };
 
 export const router = createBrowserRouter([
+    {
+        path: "/docs",
+        element: <DocPortalLayout />,
+        children: [
+            {
+                index: true,
+                element: <DocPortal />,
+            },
+        ],
+    },
     {
         path: "/",
         element: <Layout />,

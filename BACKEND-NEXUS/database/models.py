@@ -168,6 +168,8 @@ class Service(Base, SerializableMixin):
     deleted_at = Column(DateTime, nullable=True)
     # 迭代提交前是否需 owner 审批（默认关闭，兼容现有行为）
     requires_iteration_approval = Column(Boolean, default=False, nullable=False)
+    # 是否开放只读文档门户（无需登录即可访问已发布版本）
+    docs_public = Column(Boolean, default=False, nullable=False)
 
     def __repr__(self):
         return f"<Service {self.service_uuid}:{self.version}>"
