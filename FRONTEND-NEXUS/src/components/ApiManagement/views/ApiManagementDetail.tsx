@@ -1,6 +1,7 @@
 ﻿import React, { useCallback, useMemo, useState } from "react";
 import styles from "../index.module.less";
 import { useThisService, useServiceIteration } from "@/hooks/useService";
+import { useIterationApprovalPolling } from "@/hooks/useIterationApprovalPolling";
 import useApi from "@/hooks/useApi";
 import Detail from "../Detail";
 import Header from "../layout/Header";
@@ -37,6 +38,9 @@ const ApiManagementDetail: React.FC<{ uuid: string }> = ({ uuid }) => {
         handleSubmitForApproval,
         handleDirectPublish,
         exitIteration,
+        resumeIteration,
+        fetchAllVersions,
+        fetchServiceDetail,
         requiresIterationApproval,
         isServiceOwner,
         handleUpdateApprovalSetting,
@@ -77,6 +81,34 @@ const ApiManagementDetail: React.FC<{ uuid: string }> = ({ uuid }) => {
     } = useServiceIteration(iterationId, apiCategories);
 
     const [auditVisible, setAuditVisible] = useState(false);
+
+    const handleApprovalApproved = useCallback(async () => {
+        exitIteration();
+        const latestVersion = await fetchAllVersions();
+        if (latestVersion) {
+            await fetchServiceDetail(latestVersion);
+        }
+    }, [exitIteration, fetchAllVersions, fetchServiceDetail]);
+
+    const handleApprovalRejected = useCallback(
+        (id: number) => {
+            if (inIteration && iterationId === id) {
+                void fetchIterationDetail();
+                return;
+            }
+            resumeIteration(id);
+        },
+        [resumeIteration, fetchIterationDetail, inIteration, iterationId],
+    );
+
+    useIterationApprovalPolling({
+        serviceUuid: serviceUuid || uuid,
+        inIteration,
+        iterationId,
+        iterationApprovalStatus,
+        onApproved: handleApprovalApproved,
+        onRejected: handleApprovalRejected,
+    });
 
     const handleImportOpenAPI = useCallback(
         async (openapiObject: Record<string, any>) => {

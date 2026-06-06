@@ -59,6 +59,7 @@ import {
 import CompleteIterationForm, {
     incrementVersion,
 } from "@/components/ApiManagement/ApiList/CompleteIterationForm";
+import { markIterationPendingApproval } from "@/hooks/useIterationApprovalPolling";
 import type {
     AddApiRequest,
     UpdateApiByApiDraftIdRequest,
@@ -339,11 +340,14 @@ export const useThisService = (service_uuid: string) => {
                 throw new Error(res.message || "获取版本失败");
             }
             setVersions(res.versions.filter((v) => v.version) || []); // 筛选掉正在迭代的，没有版本号的service_iteration
-            setCurrentVersion(res.versions?.[0]?.version || "");
+            const latestVersion = res.versions?.[0]?.version || "";
+            setCurrentVersion(latestVersion);
             setIsLatest(res.versions?.[0]?.is_latest || false);
+            return latestVersion;
         } catch (err: unknown) {
             Message.warning(toastFromError(err, "toast.fetchVersionsFailed"));
             navigate("/");
+            return "";
         } finally {
             setLoading(false);
         }
@@ -732,6 +736,12 @@ export const useThisService = (service_uuid: string) => {
                             Message.success(
                                 resolveApiMessage(res.message, successToastKey),
                             );
+                            if (mode === "submit") {
+                                markIterationPendingApproval(
+                                    service_uuid,
+                                    iterationId,
+                                );
+                            }
                             modal.close();
                             setTimeout(() => {
                                 window.location.reload();
@@ -835,6 +845,11 @@ export const useThisService = (service_uuid: string) => {
         setIterationId(-1);
     };
 
+    const resumeIteration = useCallback((id: number) => {
+        setInIteration(true);
+        setIterationId(id);
+    }, []);
+
     return {
         loading,
         versions,
@@ -859,6 +874,9 @@ export const useThisService = (service_uuid: string) => {
         handleSubmitForApproval,
         handleDirectPublish,
         exitIteration,
+        resumeIteration,
+        fetchAllVersions,
+        fetchServiceDetail,
         requiresIterationApproval,
         isServiceOwner,
         handleUpdateApprovalSetting,

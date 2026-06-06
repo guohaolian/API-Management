@@ -323,6 +323,8 @@
     "pendingBanner": "待 Owner 审批中，暂不可编辑",
     "pendingShort": "待审批",
     "rejectedBanner": "审批已驳回",
+    "approvedNotify": "Owner 已通过审批，新版本已发布",
+    "rejectedNotify": "Owner 已驳回您的迭代提交",
     "changePreviewTitle": "迭代变更预览",
     "enableSwitchHint": "若需走审批流程，请先在页面右上角打开「迭代需审批」。开启后主按钮为「提交审批」；Owner 可在下拉菜单中选择「直接发布」。"
   },

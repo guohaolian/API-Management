@@ -322,6 +322,8 @@
     "pendingBanner": "Pending owner approval — editing disabled",
     "pendingShort": "Pending",
     "rejectedBanner": "Rejected by owner",
+    "approvedNotify": "Owner approved your iteration; the new version is published",
+    "rejectedNotify": "Owner rejected your iteration submission",
     "changePreviewTitle": "Iteration change preview",
     "enableSwitchHint": "To use the approval flow, turn on \"Require approval\" in the top bar first. The main button becomes \"Submit for approval\"; owners can choose \"Publish directly\" from the dropdown."
   },
