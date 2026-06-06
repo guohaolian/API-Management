@@ -68,6 +68,8 @@ import type {
 
 const { Text, Ellipsis } = Typography;
 
+const APPROVAL_SETTING_POLL_MS = 3_000;
+
 // 服务列表hook
 export const useService = () => {
     const navigate = useNavigate();
@@ -672,9 +674,108 @@ export const useThisService = (service_uuid: string) => {
     const isServiceOwner =
         serviceMeta.owner_id === user?.id || user?.level === 0;
 
+    const applyRequiresIterationApproval = useCallback((enabled: boolean) => {
+        setServiceDetail((prev) => {
+            if ("requires_iteration_approval" in prev) {
+                if (prev.requires_iteration_approval === enabled) return prev;
+                return { ...prev, requires_iteration_approval: enabled };
+            }
+            if ("service" in prev && prev.service) {
+                if (prev.service.requires_iteration_approval === enabled) {
+                    return prev;
+                }
+                return {
+                    ...prev,
+                    service: {
+                        ...prev.service,
+                        requires_iteration_approval: enabled,
+                    },
+                };
+            }
+            return prev;
+        });
+    }, []);
+
+    const syncApprovalSettingFromServer = useCallback(async (): Promise<
+        boolean | null
+    > => {
+        try {
+            if (iterationId > 0) {
+                const res = await GetIterationById(iterationId);
+                if (res.status === 200 && res.iteration?.service) {
+                    const enabled =
+                        !!res.iteration.service.requires_iteration_approval;
+                    applyRequiresIterationApproval(enabled);
+                    return enabled;
+                }
+            }
+            if (!service_uuid || !currentVersion) {
+                return null;
+            }
+            const res = await GetServiceByUuidAndVersion(
+                service_uuid,
+                currentVersion,
+            );
+            if (res.status !== 200 || !res.service) {
+                return null;
+            }
+            const service = res.service;
+            const nested =
+                "requires_iteration_approval" in service
+                    ? service
+                    : "service" in service
+                      ? service.service
+                      : undefined;
+            const enabled = !!nested?.requires_iteration_approval;
+            applyRequiresIterationApproval(enabled);
+            return enabled;
+        } catch {
+            return null;
+        }
+    }, [
+        iterationId,
+        service_uuid,
+        currentVersion,
+        applyRequiresIterationApproval,
+    ]);
+
+    useEffect(() => {
+        if (!inIteration || iterationId <= 0) {
+            return;
+        }
+
+        void syncApprovalSettingFromServer();
+
+        const timer = window.setInterval(() => {
+            void syncApprovalSettingFromServer();
+        }, APPROVAL_SETTING_POLL_MS);
+
+        const refreshOnFocus = () => {
+            void syncApprovalSettingFromServer();
+        };
+        const refreshOnVisible = () => {
+            if (document.visibilityState === "visible") {
+                void syncApprovalSettingFromServer();
+            }
+        };
+        window.addEventListener("focus", refreshOnFocus);
+        document.addEventListener("visibilitychange", refreshOnVisible);
+
+        return () => {
+            window.clearInterval(timer);
+            window.removeEventListener("focus", refreshOnFocus);
+            document.removeEventListener("visibilitychange", refreshOnVisible);
+        };
+    }, [inIteration, iterationId, syncApprovalSettingFromServer]);
+
+    const resolveApprovalRequired = useCallback(async () => {
+        const fresh = await syncApprovalSettingFromServer();
+        return fresh ?? requiresIterationApproval;
+    }, [syncApprovalSettingFromServer, requiresIterationApproval]);
+
     const runCompleteIterationForm = useCallback(
         (
-            mode: "commit" | "submit",
+            mode: "commit" | "submit" | "auto",
             titleKey: string,
             successToastKey: string,
             failToastKey: string,
@@ -722,12 +823,21 @@ export const useThisService = (service_uuid: string) => {
                     onOk: async (values, form) => {
                         try {
                             await form.validate();
+                            let resolvedMode = mode;
+                            if (mode === "auto") {
+                                const fresh =
+                                    await syncApprovalSettingFromServer();
+                                resolvedMode =
+                                    (fresh ?? requiresIterationApproval)
+                                        ? "submit"
+                                        : "commit";
+                            }
                             const payload = {
                                 service_iteration_id: iterationId,
                                 new_version: values.new_version,
                             };
                             const res =
-                                mode === "submit"
+                                resolvedMode === "submit"
                                     ? await SubmitIterationForApproval(payload)
                                     : await CommitIteration(payload);
                             if (res.status !== 200) {
@@ -736,7 +846,7 @@ export const useThisService = (service_uuid: string) => {
                             Message.success(
                                 resolveApiMessage(res.message, successToastKey),
                             );
-                            if (mode === "submit") {
+                            if (resolvedMode === "submit") {
                                 markIterationPendingApproval(
                                     service_uuid,
                                     iterationId,
@@ -755,12 +865,18 @@ export const useThisService = (service_uuid: string) => {
             };
             return openForm();
         },
-        [iterationId, currentVersion, service_uuid],
+        [
+            iterationId,
+            currentVersion,
+            service_uuid,
+            syncApprovalSettingFromServer,
+            requiresIterationApproval,
+        ],
     );
 
     const handleSubmitForApproval = useCallback(async () => {
         await runCompleteIterationForm(
-            "submit",
+            "auto",
             "approval.submitTitle",
             "approval.submitSuccess",
             "approval.submitFailed",
@@ -784,21 +900,14 @@ export const useThisService = (service_uuid: string) => {
     }, [runCompleteIterationForm]);
 
     const handleCompleteIteration = useCallback(async () => {
-        if (requiresIterationApproval) {
-            await handleSubmitForApproval();
-            return;
-        }
+        const needsApproval = await resolveApprovalRequired();
         await runCompleteIterationForm(
-            "commit",
-            "iteration.complete",
-            "toast.commitIterationSuccess",
-            "toast.commitIterationFailed",
+            "auto",
+            needsApproval ? "approval.submitTitle" : "iteration.complete",
+            needsApproval ? "approval.submitSuccess" : "toast.commitIterationSuccess",
+            needsApproval ? "approval.submitFailed" : "toast.commitIterationFailed",
         );
-    }, [
-        requiresIterationApproval,
-        handleSubmitForApproval,
-        runCompleteIterationForm,
-    ]);
+    }, [resolveApprovalRequired, runCompleteIterationForm]);
 
     const handleUpdateApprovalSetting = useCallback(
         async (enabled: boolean) => {
