@@ -30,14 +30,17 @@ NEXUS 试图把“接口定义”从附属产物变成核心资产：把 Service
 - API：分类管理、按分类获取 API 列表、查询 API 详情（含参数树）
 - 迭代内 API 草稿：新增、删除、更新（同时更新请求/响应参数草稿）
 - OpenAPI 导出：按 `service_uuid + version` 导出 OpenAPI JSON
-- OpenAPI 导入：支持导入 OpenAPI JSON 文件，生成 API
+- OpenAPI 导入：支持导入 OpenAPI JSON，写入迭代草稿（新建迭代或覆盖当前迭代）
+- Maintainer：添加/移除维护者、判断维护关系、分页查询用户维护的服务列表
+- 公开文档门户：Owner 开关 `docs_public`；只读 `/v1/docs` 接口在公开时可无需登录访问
+- 在线 Mock：按 API 定义生成示例响应、获取默认请求参数、Mock 代理（`/v1/mock`）
 - 前端 Web：围绕上述能力的完整管理 UI
 - npm 包（`nexus-api-codegen`）：CLI 登录、选择 Service 并生成 TS 服务类与类型定义
 
 ### 3.2 非目标（当前不做 / 未落地）
 
-- OpenAPI/Swagger/Thrift 文件导入（当前未落地；仅支持 OpenAPI 导出和导入）
-- 在线 Mock、在线测试台、自动化测试用例生成
+- Swagger / Thrift 等非 OpenAPI JSON 格式的文件导入（当前仅支持 OpenAPI JSON 导入与导出）
+- 完整测试台、自动化测试用例生成
 - 更细粒度的 maintainer 协作策略（当前 maintainer 可维护服务，审批权仅在 Owner）
 - 跨服务/组织级审批流、多级审批、会签
 
@@ -205,6 +208,27 @@ CLI 使用流程：
 - 表：`service.requires_iteration_approval`；`service_iteration` 审批字段；`iteration_audit_log`
 - 迁移：Alembic revision `20250604_001` 或备用手工脚本 [migrations/20250604_iteration_approval.sql](migrations/20250604_iteration_approval.sql)（详见 [BACKEND-NEXUS/README.md](../BACKEND-NEXUS/README.md) 数据库迁移一节）
 
+### 6.8 公开文档门户
+
+目标：允许团队将已发布的服务接口定义对外只读展示，无需对方登录 NEXUS 管理端。
+
+当前实现：
+
+- 开关：服务详情 Header「公开文档」，仅 **Owner** 可改（`updateDocsPublicSetting` → `docs_public`）
+- 访问：`docs_public=true` 时，前端文档页调用 `/v1/docs/*` 无需 Token；未公开时仅 Owner / Maintainer / L0 可预览
+- 能力：与 management 侧类似，支持按版本查看 Service/API 详情及导出 OpenAPI JSON
+
+### 6.9 在线 Mock
+
+目标：在管理端按 API 定义快速生成示例响应，辅助联调与演示。
+
+当前实现：
+
+- 入口：API 详情页 Mock 面板
+- `executeMock`：指定 `api_id`（及可选 `request`、`status_code`）生成 Mock 响应
+- `getMockDefaults`：读取该 API 的默认请求参数示例
+- `proxy`：通过 `service_uuid` + `mock_path` + HTTP 方法匹配 API 并返回 Mock 响应；支持正式版、历史版本与迭代草稿（`service_iteration_id`）
+
 ## 7. 新颖之处（差异化点）
 
 ### 7.1 “迭代即工作区”：把 API 变更过程产品化
@@ -301,7 +325,7 @@ CLI 使用流程：
 
 ## 9. 关键接口（便于对齐前后端/生成器）
 
-以 `/v1` 为前缀，核心路由分为三类：
+以 `/v1` 为前缀，核心路由分为五类（另含根路径健康检查 `GET /`）：
 
 ### 9.1 用户（/v1/user）
 
@@ -317,9 +341,12 @@ CLI 使用流程：
 - `GET /getAllServices`（分页）
 - `GET /getServiceById`
 - `GET /getHisNewestServicesByOwnerId`（分页）
+- `GET /getHisMaintainedServicesByUserId`（分页，默认当前用户）
 - `GET /getServiceByUuidAndVersion`
 - `GET /getAllVersionsByUuid`
+- `GET /isServiceMaintainer`（Query: `service_id`, `candidate_id`）
 - `POST /createNewService`
+- `POST /addOrRemoveServiceMaintainerById`
 - `GET /getAllDeletedServicesByUserId`（分页）
 - `POST /deleteServiceById`
 - `POST /restoreServiceById`
@@ -334,10 +361,12 @@ CLI 使用流程：
 - `GET /getIterationAuditLog`
 - `GET /getIterationChangePreview`
 - `POST /updateServiceApprovalSetting`
+- `POST /updateDocsPublicSetting`（Owner 开关 `docs_public`）
 - `POST /updateDescription`
 - `GET /exportOpenapiByUuidAndVersion`
-- `POST /importOpenapiToIteration`
-- `GET /compareVersionsByUuid`（diff对比）
+- `POST /importOpenapiToNewIteration`（从 OpenAPI 创建新迭代）
+- `POST /importOpenapiToIteration`（导入到当前迭代，覆盖草稿）
+- `GET /compareVersionsByUuid`（diff 对比）
 
 ### 9.3 API（/v1/api）
 
@@ -350,8 +379,26 @@ CLI 使用流程：
 - `POST /updateApiCategoryById`（仅支持正式表）
 - 迭代相关：
   - `POST /addApi`
+  - `POST /copyApiByApiDraftId`（同一迭代内复制 API 草稿）
   - `POST /deleteApiByApiDraftId`
   - `POST /updateApiByApiDraftId`（更新 API 草稿及其参数）
+
+### 9.4 文档门户（/v1/docs）
+
+只读接口；服务开启 `docs_public` 后无需登录。未公开时须 Owner / Maintainer / L0 携带 Token。
+
+- `GET /getServiceByUuidAndVersion`（Query: `service_uuid`, `version`）
+- `GET /getAllVersionsByUuid`（Query: `service_uuid`）
+- `GET /getApiById`（Query: `api_id`, `is_latest`）
+- `GET /exportOpenapiByUuidAndVersion`（Query: `service_uuid`, `version`）
+
+### 9.5 Mock（/v1/mock）
+
+均需登录鉴权。
+
+- `POST /executeMock`（Body: `api_id`, `is_latest`, `status_code`, `request`）
+- `GET /getMockDefaults`（Query: `api_id`, `is_latest`）
+- `GET|POST|PUT|DELETE|PATCH /proxy`（Query: `service_uuid`, `mock_path`, `version`, `service_iteration_id`；写操作 Body 可含 `request`）
 
 ## 10. 指标与验收标准（建议）
 
@@ -381,5 +428,7 @@ CLI 使用流程：
 
 - 版本差异对比（Service/API/参数树 diff）——已实现
 - 迭代审批与变更审计——已实现（见 [6.7](#67-迭代审批与变更审计可选)）
+- 公开文档门户——已实现（见 [6.8](#68-公开文档门户)）
+- 在线 Mock——已实现（见 [6.9](#69-在线-mock)）
 - 团队协作增强（更细的 maintainer 权限、跨服务访问策略）
 - 审批流扩展（多级审批、会签、非 Owner 审批人）

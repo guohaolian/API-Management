@@ -22,3 +22,4 @@ deploy/aliyun/deploy.env
 GITHUB-ACTIONS-DEPLOY.md
 DEPLOY-SERVER-GIT.md
 migrations
+RESUME.md

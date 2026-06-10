@@ -57,7 +57,7 @@ cd BACKEND-NEXUS
 | 项 | 说明 |
 |---|---|
 | Base URL | `http://127.0.0.1:1024`（端口由 `.env` 中 `PORT` 控制） |
-| 鉴权 | 除登录、注册外，需在请求头携带 `Authorization: Bearer <access_token>` |
+| 鉴权 | 除登录、注册、`/v1/docs`（公开服务可匿名）外，需在请求头携带 `Authorization: Bearer <access_token>` |
 | 参数缺失 / 格式错误 | HTTP `400`，`description` 为错误说明 |
 | 业务逻辑错误 | HTTP `200`，响应体中 `status` 为负数，`message` 为错误描述 |
 | 查询成功 | HTTP `200`，直接返回数据对象或列表 |
@@ -111,6 +111,7 @@ cd BACKEND-NEXUS
 | GET | `/v1/service/getIterationAuditLog` | 是 | Query: `service_iteration_id`, `page_size`, `current_page` | 获取迭代变更审计时间线 |
 | GET | `/v1/service/getIterationChangePreview` | 是 | Query: `service_iteration_id` | 获取相对 `base_version` 的变更预览（diff） |
 | POST | `/v1/service/updateServiceApprovalSetting` | 是 | Body: `service_id`, `requires_iteration_approval` | Owner 开启/关闭服务的「迭代需审批」 |
+| POST | `/v1/service/updateDocsPublicSetting` | 是 | Body: `service_id`, `docs_public` | Owner 开启/关闭服务的「公开文档门户」 |
 | POST | `/v1/service/updateDescription` | 是 | Body: `service_iteration_id`, `description` | 在迭代中修改服务描述 |
 | POST | `/v1/service/importOpenapiToNewIteration` | 是 | Body: `service_id`, `openapi_object` | 从 OpenAPI 文档创建新迭代并写入草稿 |
 | POST | `/v1/service/importOpenapiToIteration` | 是 | Body: `service_iteration_id`, `openapi_object` | 将 OpenAPI 文档导入当前迭代（覆盖草稿） |
@@ -132,6 +133,36 @@ cd BACKEND-NEXUS
 | POST | `/v1/api/updateApiByApiDraftId` | 是 | Body: `service_iteration_id`, `api_draft_id`, `name`, `method`, `path`, `description`, `level`, `req_params`, `resp_params`（后两者为 JSON 字符串） | 在迭代中更新 API 草稿及其请求 / 响应参数树 |
 
 > 说明：前端通常通过 `getServiceByUuidAndVersion` 一次性获取分类与 API 聚合数据，因此 `getAllCategoriesByServiceId`、`getAllApisByServiceId` 在前端较少直接调用。
+
+### 文档门户 `/v1/docs`
+
+只读接口，面向对外 API 文档页。与 `/v1/service` 中同名接口的数据形态类似，但访问控制不同：
+
+- 服务已开启 `docs_public` 时：**无需登录**即可访问已发布版本
+- 未开启公开时：须携带有效 Token，且为 Owner / Maintainer / L0 方可预览
+
+| 方法 | 路径 | 鉴权 | 参数 | 功能 |
+|---|---|---|---|---|
+| GET | `/v1/docs/getServiceByUuidAndVersion` | 可选 | Query: `service_uuid`, `version`（可为 `latest`） | 获取服务详情（含分类与 API 聚合数据） |
+| GET | `/v1/docs/getAllVersionsByUuid` | 可选 | Query: `service_uuid` | 获取某服务的全部历史版本号 |
+| GET | `/v1/docs/getApiById` | 可选 | Query: `api_id`, `is_latest`（默认 true） | 获取 API 详情（正式版或历史迭代版） |
+| GET | `/v1/docs/exportOpenapiByUuidAndVersion` | 可选 | Query: `service_uuid`, `version`（可为 `latest`） | 导出指定服务版本的 OpenAPI 3.1 JSON |
+
+> 说明：「可选鉴权」指不强制 `Authorization` 头；未公开服务在无有效 Token 时将返回业务错误。开关由 Owner 通过 `updateDocsPublicSetting` 控制。
+
+### Mock `/v1/mock`
+
+在线 Mock 与代理，用于在管理端按 API 定义快速验证响应形态。支持正式版、历史版本与迭代草稿。
+
+| 方法 | 路径 | 鉴权 | 参数 | 功能 |
+|---|---|---|---|---|
+| POST | `/v1/mock/executeMock` | 是 | Body: `api_id`, `is_latest`（默认 true）, `status_code`（可选）, `request`（可选） | 按 API 定义生成 Mock 响应 |
+| GET | `/v1/mock/getMockDefaults` | 是 | Query: `api_id`, `is_latest`（默认 true） | 获取该 API 的默认 Mock 请求参数示例 |
+| GET | `/v1/mock/proxy` | 是 | Query: `service_uuid`, `mock_path`, `version`（可选，默认 `latest`）, `service_iteration_id`（可选，迭代草稿） | 按 HTTP 方法与 `mock_path` 匹配 API 并返回 Mock 响应 |
+| POST | `/v1/mock/proxy` | 是 | Query 同上；Body: JSON，可含 `request` 字段或整包作为请求输入 | 同上（POST） |
+| PUT | `/v1/mock/proxy` | 是 | 同 POST | 同上（PUT） |
+| DELETE | `/v1/mock/proxy` | 是 | 同 GET | 同上（DELETE） |
+| PATCH | `/v1/mock/proxy` | 是 | 同 POST | 同上（PATCH） |
 
 ## 环境变量（`.env`）
 
@@ -251,7 +282,7 @@ uv run alembic stamp 20250604_001
 
 ## 服务与 API 实现
 
--   将全部服务分为 `user`、`service`、`api` 三类，分别对应三个子路由
+-   将全部服务分为 `user`、`service`、`api`、`docs`、`mock` 五类，分别对应五个子路由（`docs` 为只读文档门户，`mock` 为在线 Mock）
 
 -   每个路由实现内部逻辑都交由 `service` 层处理。路由层仅负责接收请求参数、调用 `service` 层方法、返回响应。`service` 层再调用对应的 `model` 层方法进行数据库的 `CRUD`
 
