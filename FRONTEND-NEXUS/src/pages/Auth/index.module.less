@@ -1,0 +1,715 @@
+// ─────────────────────────────────────────────
+//  Light-mode tokens (直接对应 login.html 变量)
+// ─────────────────────────────────────────────
+@neu-bg: #e8edf4;
+@neu-sd: rgba(155, 172, 205, 0.78);   // shadow dark
+@neu-sl: rgba(255, 255, 255, 0.98);   // shadow light
+@neu-sd2: rgba(140, 158, 198, 0.3);   // softer
+@neu-text: #1e2545;
+@neu-sub: #9ba4bb;
+@neu-blue: #5b7af7;
+@neu-blue-h: #4a6ae6;
+@neu-input-bg: rgba(255, 255, 255, 0.88);
+@neu-input-bd: #dde3ed;
+@neu-input-text: #2a3054;
+@neu-input-ph: #b8c2d8;
+
+// Dark-mode tokens
+@dark-bg: #1e2232;
+@dark-sd: rgba(0, 0, 0, 0.52);
+@dark-sl: rgba(44, 56, 84, 0.58);
+@dark-text: #c8d4f0;
+@dark-sub: #7080a2;
+@dark-input-bg: #252b3d;
+@dark-input-bd: rgba(255, 255, 255, 0.08);
+@dark-input-text: #c4cfea;
+@dark-input-ph: rgba(196, 207, 234, 0.35);
+
+// ─────────────────────────────────────────────
+//  全屏容器（覆盖 #root min-width 限制）
+// ─────────────────────────────────────────────
+.page {
+    position: fixed;
+    inset: 0;
+    overflow-y: auto;
+    background: @neu-bg;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 0;
+    font-family: "ByteSans", "Noto Sans SC", sans-serif;
+    transition: background 0.3s;
+}
+
+// ─────────────────────────────────────────────
+//  右上角工具栏（主题 + 语言）
+// ─────────────────────────────────────────────
+.toolbar {
+    position: fixed;
+    top: 16px;
+    right: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    z-index: 200;
+}
+
+.toolBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 7px 14px;
+    border-radius: 100px;
+    border: none;
+    cursor: pointer;
+    font-family: "ByteSans", sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    color: @neu-sub;
+    background: @neu-bg;
+    box-shadow:
+        6px 6px 12px @neu-sd,
+        -5px -5px 10px @neu-sl;
+    transition: box-shadow 0.22s, color 0.2s, transform 0.15s, background 0.3s;
+
+    svg {
+        font-size: 15px;
+    }
+
+    &:hover {
+        color: @neu-blue;
+        box-shadow:
+            8px 8px 16px @neu-sd,
+            -6px -6px 13px @neu-sl;
+        transform: translateY(-1px);
+    }
+
+    &:active {
+        box-shadow:
+            inset 4px 4px 8px @neu-sd,
+            inset -3px -3px 7px @neu-sl;
+        transform: translateY(0);
+    }
+}
+
+// ─────────────────────────────────────────────
+//  外壳：拟态容器
+// ─────────────────────────────────────────────
+.authBox {
+    width: min(900px, 96vw);
+    height: clamp(480px, 82vh, 620px);
+    border-radius: clamp(16px, 2.5vw, 28px);
+    background: @neu-bg;
+    border: none;
+    box-shadow:
+        18px 18px 40px @neu-sd,
+        -12px -12px 30px @neu-sl,
+        0 4px 16px @neu-sd2;
+    overflow: hidden;
+    position: relative;
+    transition: background 0.3s, box-shadow 0.3s, height 0.36s ease;
+
+    // 分割线（跟随面板边界动画）
+    &::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 60%;
+        width: 1px;
+        background: transparent;
+        box-shadow:
+            -1px 0 0 rgba(148, 165, 198, 0.28),
+            1px 0 0 rgba(255, 255, 255, 0.88);
+        z-index: 10;
+        pointer-events: none;
+        transition: left 0.72s cubic-bezier(0.65, 0, 0.35, 1);
+    }
+
+    &.signupMode::after {
+        left: 40%;
+    }
+}
+
+// ─────────────────────────────────────────────
+//  面板公共
+// ─────────────────────────────────────────────
+.panel {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    transition: left 0.72s cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+// ─────────────────────────────────────────────
+//  面板 A：表单面板 60%（左侧，层级低）
+// ─────────────────────────────────────────────
+.pA {
+    left: 0;
+    width: 60%;
+    background: rgba(255, 255, 255, 0.07);
+    box-shadow: inset -8px 0 24px rgba(140, 158, 198, 0.08);
+    z-index: 1;
+    overflow: hidden;
+
+    .authBox.signupMode & {
+        left: 40%;
+    }
+}
+
+// ─────────────────────────────────────────────
+//  面板 B：拟态覆盖层 40%（右侧，层级高）
+// ─────────────────────────────────────────────
+.pB {
+    left: 60%;
+    width: 40%;
+    background: @neu-bg;
+    z-index: 3;
+    overflow: hidden;
+    transition: left 0.72s cubic-bezier(0.65, 0, 0.35, 1), background 0.3s;
+
+    .authBox.signupMode & {
+        left: 0;
+    }
+}
+
+// ─────────────────────────────────────────────
+//  拟态装饰圆
+// ─────────────────────────────────────────────
+.d1 {
+    position: absolute;
+    width: 230px;
+    height: 230px;
+    border-radius: 50%;
+    background: @neu-bg;
+    box-shadow:
+        9px 9px 20px @neu-sd,
+        -7px -7px 16px @neu-sl;
+    top: -95px;
+    right: -85px;
+    pointer-events: none;
+    transition: background 0.3s, box-shadow 0.3s;
+}
+
+.d2 {
+    position: absolute;
+    width: 210px;
+    height: 210px;
+    border-radius: 50%;
+    background: @neu-bg;
+    box-shadow:
+        8px 8px 18px @neu-sd,
+        -6px -6px 14px @neu-sl;
+    bottom: -85px;
+    left: -75px;
+    pointer-events: none;
+    transition: background 0.3s, box-shadow 0.3s;
+}
+
+// ─────────────────────────────────────────────
+//  面板内内容容器
+// ─────────────────────────────────────────────
+.pInner {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: clamp(16px, 3.5vh, 36px) clamp(18px, 3.5vw, 44px);
+    overflow-y: auto;
+}
+
+// ─────────────────────────────────────────────
+//  表单面板：登录 / 注册 内容切换
+// ─────────────────────────────────────────────
+.pAReg {
+    display: none;
+}
+
+.pA.showReg {
+    .pALogin {
+        display: none;
+    }
+    .pAReg {
+        display: flex;
+    }
+}
+
+// ─────────────────────────────────────────────
+//  覆盖层文字块：Hello / Welcome
+// ─────────────────────────────────────────────
+.pBHello,
+.pBWelcome {
+    text-align: center;
+    padding: clamp(16px, 4vh, 44px) clamp(14px, 3vw, 36px);
+    transition: opacity 0.18s ease;
+}
+
+.pBWelcome {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.pB.showWelcome {
+    .pBHello {
+        opacity: 0;
+        pointer-events: none;
+    }
+    .pBWelcome {
+        opacity: 1;
+        pointer-events: auto;
+    }
+}
+
+// ─────────────────────────────────────────────
+//  Logo 行
+// ─────────────────────────────────────────────
+.logoRow {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin-bottom: 10px;
+    position: relative;
+    z-index: 1;
+}
+
+.logoImg {
+    width: 28px;
+    height: 28px;
+}
+
+.logoText {
+    font-size: 15px;
+    font-weight: 700;
+    color: @neu-text;
+    letter-spacing: 0.05em;
+    transition: color 0.3s;
+}
+
+// ─────────────────────────────────────────────
+//  表单标题
+// ─────────────────────────────────────────────
+.fpTitle {
+    font-size: clamp(15px, 2.2vw, 22px);
+    font-weight: 700;
+    color: @neu-text;
+    letter-spacing: 0.2em;
+    margin-bottom: clamp(10px, 2vh, 18px);
+    white-space: nowrap;
+    transition: color 0.3s;
+}
+
+// ─────────────────────────────────────────────
+//  输入框
+// ─────────────────────────────────────────────
+.field {
+    width: 100%;
+    margin-bottom: clamp(5px, 1vh, 10px);
+
+    input,
+    select {
+        width: 100%;
+        background: @neu-input-bg;
+        border: 1.5px solid @neu-input-bd;
+        border-radius: 10px;
+        padding: clamp(8px, 1.5vh, 11px) 14px;
+        font-family: "ByteSans", "Noto Sans SC", sans-serif;
+        font-size: clamp(12px, 1.3vw, 13px);
+        color: @neu-input-text;
+        outline: none;
+        box-shadow:
+            inset 2px 2px 5px rgba(155, 172, 205, 0.22),
+            inset -1px -1px 4px rgba(255, 255, 255, 0.7);
+        transition: border-color 0.25s, background 0.25s, box-shadow 0.25s;
+
+        &::placeholder {
+            color: @neu-input-ph;
+        }
+
+        &:focus {
+            border-color: rgba(91, 122, 247, 0.6);
+            background: #fff;
+            box-shadow:
+                0 0 0 3px rgba(91, 122, 247, 0.1),
+                inset 2px 2px 5px rgba(91, 122, 247, 0.08);
+        }
+
+        &:disabled {
+            opacity: 0.58;
+            cursor: not-allowed;
+        }
+    }
+
+    select {
+        appearance: none;
+        cursor: pointer;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4 4-4' stroke='%239ba4bb' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 11px center;
+        background-color: @neu-input-bg;
+        padding-right: 32px;
+    }
+}
+
+// ─────────────────────────────────────────────
+//  角色选择器（ArcoDesign Select 拟态覆盖）
+// ─────────────────────────────────────────────
+.roleField {
+    :global(.arco-select-view) {
+        background: @neu-input-bg !important;
+        border: 1.5px solid @neu-input-bd !important;
+        border-radius: 10px !important;
+        box-shadow:
+            inset 2px 2px 5px rgba(155, 172, 205, 0.22),
+            inset -1px -1px 4px rgba(255, 255, 255, 0.7) !important;
+        padding: clamp(8px, 1.5vh, 11px) 14px !important;
+        min-height: unset !important;
+        height: auto !important;
+        font-family: "ByteSans", "Noto Sans SC", sans-serif !important;
+        font-size: clamp(12px, 1.3vw, 13px) !important;
+        color: @neu-input-text !important;
+        transition: border-color 0.25s, background 0.25s, box-shadow 0.25s !important;
+
+        &:hover,
+        &:focus-within {
+            border-color: rgba(91, 122, 247, 0.6) !important;
+        }
+    }
+
+    :global(.arco-select-view-input::placeholder),
+    :global(.arco-select-view .arco-select-view-value) {
+        color: @neu-input-ph !important;
+    }
+
+    :global(.arco-select-focused .arco-select-view),
+    :global(.arco-select-open .arco-select-view) {
+        border-color: rgba(91, 122, 247, 0.6) !important;
+        background: #fff !important;
+        box-shadow:
+            0 0 0 3px rgba(91, 122, 247, 0.1),
+            inset 2px 2px 5px rgba(91, 122, 247, 0.08) !important;
+    }
+}
+
+// dark 覆盖
+:global(html.dark) {
+    .roleField {
+        :global(.arco-select-view) {
+            background: @dark-input-bg !important;
+            border-color: @dark-input-bd !important;
+            color: @dark-input-text !important;
+            box-shadow:
+                inset 2px 2px 5px rgba(0, 0, 0, 0.28),
+                inset -1px -1px 4px rgba(55, 68, 100, 0.4) !important;
+        }
+
+        :global(.arco-select-view-input::placeholder),
+        :global(.arco-select-view .arco-select-view-value) {
+            color: @dark-input-ph !important;
+        }
+
+        :global(.arco-select-focused .arco-select-view),
+        :global(.arco-select-open .arco-select-view) {
+            border-color: rgba(91, 122, 247, 0.5) !important;
+            background: #2a3050 !important;
+        }
+    }
+}
+
+// ─────────────────────────────────────────────
+//  蓝色按钮
+// ─────────────────────────────────────────────
+.btnBlue {
+    padding: clamp(9px, 1.6vh, 12px) clamp(20px, 3vw, 44px);
+    border-radius: 100px;
+    border: none;
+    cursor: pointer;
+    font-family: "ByteSans", sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    background: @neu-blue;
+    color: #fff;
+    box-shadow: 0 6px 22px rgba(91, 122, 247, 0.45);
+    transition: box-shadow 0.25s, transform 0.2s, background 0.2s;
+    position: relative;
+    z-index: 1;
+
+    &:hover:not(:disabled) {
+        background: @neu-blue-h;
+        box-shadow: 0 10px 28px rgba(91, 122, 247, 0.55);
+        transform: translateY(-1px);
+    }
+
+    &:active:not(:disabled) {
+        transform: translateY(0);
+    }
+
+    &:disabled {
+        opacity: 0.65;
+        cursor: not-allowed;
+    }
+}
+
+.btnFull {
+    width: 100%;
+    text-align: center;
+    margin-top: 4px;
+}
+
+// ─────────────────────────────────────────────
+//  覆盖层文字
+// ─────────────────────────────────────────────
+.oTitle {
+    font-size: clamp(16px, 2.4vw, 24px);
+    font-weight: 700;
+    color: @neu-text;
+    letter-spacing: 0.02em;
+    margin-bottom: clamp(8px, 1.2vh, 12px);
+    position: relative;
+    z-index: 1;
+    transition: color 0.3s;
+}
+
+.oSub {
+    font-size: clamp(10px, 1.1vw, 12px);
+    color: @neu-sub;
+    line-height: 1.85;
+    margin-bottom: clamp(16px, 3vh, 30px);
+    max-width: 190px;
+    position: relative;
+    z-index: 1;
+    transition: color 0.3s;
+}
+
+// ─────────────────────────────────────────────
+//  移动端 Tab 导航
+// ─────────────────────────────────────────────
+.mobileNav {
+    display: none;
+}
+
+// ─────────────────────────────────────────────
+//  暗色主题覆盖
+// ─────────────────────────────────────────────
+:global(html.dark) {
+    .page {
+        background: @dark-bg;
+    }
+
+    .toolBtn {
+        color: @dark-sub;
+        background: @dark-bg;
+        box-shadow:
+            6px 6px 12px @dark-sd,
+            -4px -4px 10px @dark-sl;
+
+        &:hover {
+            color: #8aabff;
+        }
+
+        &:active {
+            box-shadow:
+                inset 4px 4px 8px @dark-sd,
+                inset -3px -3px 7px @dark-sl;
+        }
+    }
+
+    .authBox {
+        background: @dark-bg;
+        box-shadow:
+            18px 18px 40px @dark-sd,
+            -10px -10px 28px @dark-sl,
+            0 4px 16px rgba(0, 0, 0, 0.3);
+
+        &::after {
+            box-shadow:
+                -1px 0 0 rgba(255, 255, 255, 0.06),
+                1px 0 0 rgba(255, 255, 255, 0.04);
+        }
+    }
+
+    .pA {
+        box-shadow: inset -8px 0 24px rgba(0, 0, 0, 0.15);
+    }
+
+    .pB {
+        background: @dark-bg;
+    }
+
+    .d1,
+    .d2 {
+        background: @dark-bg;
+        box-shadow:
+            8px 8px 16px @dark-sd,
+            -5px -5px 12px @dark-sl;
+    }
+
+    .logoText {
+        color: @dark-text;
+    }
+
+    .fpTitle {
+        color: @dark-text;
+    }
+
+    .socialHint {
+        color: @dark-sub;
+    }
+
+    .field {
+        input,
+        select {
+            background: @dark-input-bg;
+            border-color: @dark-input-bd;
+            color: @dark-input-text;
+            box-shadow:
+                inset 2px 2px 5px rgba(0, 0, 0, 0.28),
+                inset -1px -1px 4px rgba(55, 68, 100, 0.4);
+
+            &::placeholder {
+                color: @dark-input-ph;
+            }
+
+            &:focus {
+                border-color: rgba(91, 122, 247, 0.5);
+                background: #2a3050;
+                box-shadow:
+                    0 0 0 3px rgba(91, 122, 247, 0.13),
+                    inset 2px 2px 5px rgba(0, 0, 0, 0.2);
+            }
+        }
+
+        select {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4 4-4' stroke='%237080a2' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+            background-color: @dark-input-bg;
+        }
+
+        select option {
+            background: #252b3d;
+            color: @dark-input-text;
+        }
+    }
+
+    .oTitle {
+        color: @dark-text;
+    }
+
+    .oSub {
+        color: @dark-sub;
+    }
+}
+
+// ─────────────────────────────────────────────
+//  移动端适配（≤640px）
+// ─────────────────────────────────────────────
+@media (max-width: 640px) {
+    .page {
+        padding: 12px 0;
+        align-items: flex-start;
+    }
+
+    .toolbar {
+        top: 10px;
+        right: 12px;
+    }
+
+    .authBox {
+        height: auto !important;
+        border-radius: 20px;
+        overflow: visible;
+        width: 92vw;
+    }
+
+    .panel {
+        position: relative !important;
+        left: 0 !important;
+        width: 100% !important;
+        height: auto !important;
+        transition: none !important;
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+
+    .pInner {
+        position: relative !important;
+        inset: auto !important;
+        padding: 28px 22px;
+    }
+
+    .pBHello,
+    .pBWelcome {
+        position: relative !important;
+        inset: auto !important;
+    }
+
+    .pB {
+        display: none !important;
+    }
+
+    .authBox:not(.signupMode) .pAReg {
+        display: none !important;
+    }
+
+    .authBox.signupMode .pALogin {
+        display: none !important;
+    }
+
+    .authBox.signupMode .pAReg {
+        display: flex !important;
+    }
+
+    // 移动端顶部 Tab
+    .mobileNav {
+        display: flex;
+        background: @neu-bg;
+        border-radius: 20px 20px 0 0;
+        overflow: hidden;
+        border-bottom: 1px solid rgba(200, 212, 232, 0.6);
+    }
+
+    .mTab {
+        flex: 1;
+        padding: 13px;
+        text-align: center;
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: @neu-sub;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -1px;
+        transition: color 0.2s, border-color 0.2s;
+    }
+
+    .authBox:not(.signupMode) .mTabSi,
+    .authBox.signupMode .mTabSu {
+        color: @neu-blue;
+        border-bottom-color: @neu-blue;
+    }
+
+    .fpTitle {
+        white-space: normal;
+        text-align: center;
+    }
+
+    :global(html.dark) {
+        .mobileNav {
+            background: @dark-bg;
+            border-bottom-color: rgba(255, 255, 255, 0.08);
+        }
+
+        .mTab {
+            color: @dark-sub;
+        }
+
+        .authBox:not(.signupMode) .mTabSi,
+        .authBox.signupMode .mTabSu {
+            color: #7a9bf7;
+            border-bottom-color: #7a9bf7;
+        }
+    }
+}

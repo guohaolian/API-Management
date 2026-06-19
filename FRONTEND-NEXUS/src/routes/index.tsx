@@ -5,19 +5,26 @@ import ServiceManagement from "@/components/ServiceManagement";
 import PendingApprovals from "@/components/PendingApprovals";
 import DocPortal from "@/components/DocPortal";
 import DocPortalLayout from "@/components/DocPortal/DocPortalLayout";
-import { Message } from "@cloud-materials/common";
-import { t } from "i18next";
+import AuthPage from "@/pages/Auth";
 
+// 未登录时静默跳转到 /login（整个主应用父路由共用）
 const requireAuthLoader = () => {
     const token = localStorage.getItem("cam_access_token");
     if (!token) {
-        Message.warning(t("common.loginFirst"));
-        return redirect("/");
+        return redirect("/login");
     }
     return null;
 };
 
 export const router = createBrowserRouter([
+    {
+        path: "/login",
+        element: <AuthPage />,
+    },
+    {
+        path: "/register",
+        element: <AuthPage />,
+    },
     {
         path: "/portal",
         element: <DocPortalLayout />,
@@ -29,8 +36,10 @@ export const router = createBrowserRouter([
         ],
     },
     {
+        // 整个主应用都要求登录，loader 在父级统一拦截
         path: "/",
         element: <Layout />,
+        loader: requireAuthLoader,
         children: [
             {
                 index: true,
@@ -39,12 +48,10 @@ export const router = createBrowserRouter([
             {
                 path: "service",
                 element: <ApiManagement />,
-                loader: requireAuthLoader,
             },
             {
                 path: "approvals",
                 element: <PendingApprovals />,
-                loader: requireAuthLoader,
             },
         ],
     },

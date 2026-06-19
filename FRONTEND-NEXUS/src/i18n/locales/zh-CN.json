@@ -379,8 +379,16 @@
     "proj_lead": "项目负责人",
     "guest": "访客"
   },
+  "auth": {
+    "helloTitle": "Hello Friend！",
+    "helloSub": "去注册一个账号，让我们踏入奇妙的旅途！",
+    "welcomeTitle": "Welcome Back！",
+    "welcomeSub": "已经有账号了嘛，快去登入账号来进入奇妙世界吧！",
+    "orUseAccount": "或使用账号登录"
+  },
   "login": {
     "title": "登录 NEXUS",
+    "pageTitle": "登 入 账 号",
     "username": "用户名/邮箱",
     "usernamePlaceholder": "请输入用户名或邮箱",
     "usernameRequired": "请输入用户名或邮箱",
@@ -391,10 +399,14 @@
     "login": "登录",
     "success": "登录成功",
     "failure": "登录失败",
-    "gotoRegister": "注册"
+    "gotoRegister": "立即注册",
+    "noAccount": "还没有账号？"
   },
   "register": {
     "title": "注册 NEXUS",
+    "pageTitle": "创 建 账 号",
+    "hasAccount": "已有账号？",
+    "gotoLogin": "立即登录",
     "username": "用户名",
     "usernamePlaceholder": "请输入用户名",
     "usernameRequired": "请输入用户名",

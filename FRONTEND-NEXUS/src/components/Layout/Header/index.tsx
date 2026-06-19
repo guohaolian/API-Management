@@ -26,7 +26,7 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = (props: HeaderProps) => {
-    const { user, logout, openLoginModal, openModifyPasswordModal } = props;
+    const { user, logout, openModifyPasswordModal } = props;
     const navigate = useNavigate();
     const { i18n } = useTranslation();
     const [showPopover, setShowPopover] = useState(false);
@@ -125,7 +125,7 @@ const Header: React.FC<HeaderProps> = (props: HeaderProps) => {
                     ) : (
                         <Avatar
                             size={32}
-                            onClick={() => openLoginModal()}
+                            onClick={() => navigate("/login")}
                             style={{
                                 backgroundColor: "#c9cdd4",
                                 color: "#fff",

@@ -378,8 +378,16 @@
     "proj_lead": "Project Lead",
     "guest": "Guest"
   },
+  "auth": {
+    "helloTitle": "Hello Friend!",
+    "helloSub": "Register an account and start your amazing journey!",
+    "welcomeTitle": "Welcome Back!",
+    "welcomeSub": "Already have an account? Sign in and dive back into the world!",
+    "orUseAccount": "or use your account"
+  },
   "login": {
     "title": "Login to NEXUS",
+    "pageTitle": "SIGN IN",
     "username": "Username / Email",
     "usernamePlaceholder": "Enter username or email",
     "usernameRequired": "Please enter username or email",
@@ -390,10 +398,14 @@
     "login": "Login",
     "success": "Login successfully",
     "failure": "Login failed",
-    "gotoRegister": "Go to Register"
+    "gotoRegister": "Sign Up",
+    "noAccount": "Don't have an account?"
   },
   "register": {
     "title": "Sign up for NEXUS",
+    "pageTitle": "SIGN UP",
+    "hasAccount": "Already have an account?",
+    "gotoLogin": "Sign In",
     "username": "Username",
     "usernamePlaceholder": "Enter username",
     "usernameRequired": "Please enter username",
