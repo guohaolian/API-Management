@@ -1,6 +1,6 @@
 {
   "name": "nexus-api-codegen",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
@@ -20,7 +20,7 @@
     "typescript",
     "api management"
   ],
-  "author": "Charlie. BU",
+  "author": "GuoHL",
   "license": "ISC",
   "description": "",
   "devDependencies": {
